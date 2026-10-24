@@ -2,9 +2,13 @@
 
 **Version 1.0.0** · Author: Claus Peter Gallenmiller · License: [GPL-3.0](LICENSE)
 
-COHI-Player-Universal turns a Raspberry Pi into a small "broadcast station" for vintage radios. It replays recordings of complete AM broadcast bands and/or current internet radio streams on several freely selectable carrier frequencies at the same time, so that an old receiver can be tuned across the dial just like in its day.
+COHI-Player turns a Raspberry Pi into a small "broadcast station" for vintage radios. It replays recordings of complete AM broadcast bands and/or current internet radio streams on several freely selectable carrier frequencies at the same time, so that an old receiver can be tuned across the dial just like in its day. 
+
+COHI-Player is part of the COHIRADIA project. Detailed information for installation, hardware setup and an archive with many recordings from 2006 on can be found on [COHIRADIA](https://www.cohiradia.org/).
 
 The radio frequency signal is generated either by an **STEMlab / Red Pitaya** board or by an inexpensive **FL2K USB-to-VGA dongle** (osmo-fl2k).
+
+The COHI-Player does not need any manual interaction for loading or starting the playback of a spectrum file. It starts automatically to play all spectrum wav files stored on an USB stick or any internal directory. Thus, it is an ideal source to simulate antenna signals for historic radio receivers in large collections or museums.
 
 > **Important – please read before use:** The output of this software is a real RF signal in the medium wave band. Transmitting on these frequencies without a licence is illegal in most countries and can disturb other services. Connect the output to the receiver **by cable** (e.g. via a suitable attenuator to the antenna input) or use a coupling loop with negligible radiation. You are responsible for operating the setup in compliance with your local regulations.
 
@@ -17,9 +21,9 @@ The radio frequency signal is generated either by an **STEMlab / Red Pitaya** bo
 | **COHI-Player** | Replays SDR band recordings (I/Q WAV files) – e.g. historical recordings of the complete medium wave band |
 | **COHI-Stream** | Feeds current internet radio streams (MP3/AAC/M3U) as AM carriers on user-defined frequencies |
 | **COHI-Player+Stream** | Both at once: a band recording plus additional live stream carriers |
-| **COHI-Coder** | Separate tool: builds an I/Q WAV file that COHI-Player can replay from a playlist of audio files (one playlist per carrier frequency) |
 
-The three player modes share one program (`cohi_player_main.py`); the mode is selected in `config_sdr.yaml` (`program_variant`). COHI-Coder is a standalone program (`cohi_coder_main.py`).
+
+The three player modes share one program (`cohi_player_main.py`); the mode is selected in `config_sdr.yaml` (`program_variant`). 
 
 The user interface is available in **English** and **German** (`language` in `config_sdr.yaml`).
 
@@ -53,17 +57,7 @@ Combines both: a band recording plus live stream carriers. On the small 3.5" dis
 
 ![COHI-Player+Stream](www/cohi_player_stream.png)
 
-### 2.4 COHI-Coder
-
-Creates a WAV file for COHI-Player from a combined M3U playlist: each frequency group (carrier) gets its own list of audio files (MP3, WAV, FLAC, OGG, M4A), which are decoded, AM-modulated and mixed into one I/Q recording. Long results are split into several chained files (FAT32 4 GB limit).
-
-So that COHI-Player finds the result, the output file name must also end with **`_0.wav`**; further parts are written automatically as `…_1.wav`, `…_2.wav` etc. in the same directory.
-
-![COHI-Coder](www/cohi_coder.png)
-
-![COHI-Coder – playlist group editor](www/cohi_coder_playlist_editor.png)
-
-### 2.5 Which mode works with which output hardware
+### 2.4 Which mode works with which output hardware
 
 | Output (`hwconfig`) | Upconverter (`fl2k_upconverter`) | COHI-Player | COHI-Stream | COHI-Player+Stream |
 |---|---|:-:|:-:|:-:|
@@ -93,7 +87,6 @@ So that COHI-Player finds the result, the output file name must also end with **
 | COHI-Player with FL2K (`ffmpeg` or `native`) | ✔ | ✔ |
 | COHI-Player with FL2K (`cpp`) | ✔ | – |
 | COHI-Stream, COHI-Player+Stream | ✔ | – |
-| COHI-Coder | ✔ | ✔ (ffmpeg must be in the `PATH`) |
 | Configuration tools | ✔ | ✔ |
 
 The live stream modes need the compiled C++ tools; a Windows build of these tools is not provided.
@@ -143,7 +136,6 @@ make
 1. Install Python 3 from [python.org](https://www.python.org/) and run `pip install -r requirements.txt` in the program directory.
 2. **For FL2K:** install the FL2K driver and the Windows build of osmo-fl2k (`fl2k_file.exe`), and download a Windows build of ffmpeg. Enter both paths in `config_sdr.yaml` (`fl2k_path`, `ffmpeg_path`).
 3. Set `fl2k_upconverter` to `ffmpeg` or `native` (the `cpp` tool is not available on Windows).
-4. **For COHI-Coder:** ffmpeg must be reachable via the `PATH` environment variable.
 
 Note: with `shutdown: true` in `config_sdr.yaml` the program also shuts down the **Windows PC** when it is closed via the shutdown button.
 
@@ -289,49 +281,6 @@ The program connects to the output hardware (with STEMlab: searches for it on th
 
 Combines the controls of 6.2 and 6.3. The **ON/OFF** switch mutes or unmutes all live stream carriers without interrupting the WAV playback. On the 3.5" display, the arrow buttons (▶ / ◀) switch between the player half and the stream half of the window.
 
-### 6.5 COHI-Coder
-
-```bash
-python3 cohi_coder_main.py
-```
-
-1. **Load** a combined M3U playlist, or create a new one with **Edit** (one group per station: name, carrier frequency in kHz and a list of audio files).
-2. Enter the **path to the sound files** and the **output file name** (must end with `_0.wav`).
-3. Set the **duration** (seconds or h:m:s) and, if required, the further parameters (LO frequency, sample rate, modulation depth, audio bandwidth, silence between tracks, …). Without LO frequency and sample rate, suitable values are calculated automatically from the station frequencies.
-4. **Start** creates the WAV file. Afterwards, **Spectrum** and **Waveform** show a preview of the result.
-5. Copy the result into one of the WAV directories of COHI-Player.
-
-Each station plays its tracks in the order of the playlist and starts again from the beginning when the list is finished. Optionally, a pause (unmodulated carrier) is inserted between the tracks. The stations start with a small time offset to each other (default 0.5 s) so that they do not all change tracks at the same moment.
-
-**Playlist format** (UTF-8; the file names refer to the sound file directory):
-
-```
-#EXTM3U
-
-#PLAYLIST: Station A
-#EXTGRP: 576
-#EXTINF: -1,Title 1
-title1.mp3
-#EXTINF: -1,Title 2
-title2.mp3
-
-#PLAYLIST: Station B
-#EXTGRP: 711
-#EXTINF: -1,Title 3
-title3.mp3
-```
-
-`#EXTGRP` is the carrier frequency in kHz.
-
-COHI-Coder can also be used from the command line (e.g. for batch jobs):
-
-```bash
-python3 cohi_coder.py playlist.m3u /path/to/sounds output_0.wav --duration 7200
-```
-
-`python3 cohi_coder.py --help` lists all options.
-
----
 
 ## 7. WAV file format
 
