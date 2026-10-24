@@ -1,0 +1,47 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <list>
+          <option value="bcrypt" />
+          <option value="cryptography" />
+          <option value="et_xmlfile" />
+          <option value="greenlet" />
+          <option value="openpyxl" />
+          <option value="paramiko" />
+          <option value="psutil" />
+          <option value="altgraph" />
+          <option value="cffi" />
+          <option value="contourpy" />
+          <option value="fonttools" />
+          <option value="kiwisolver" />
+          <option value="matplotlib" />
+          <option value="numpy" />
+          <option value="pandas" />
+          <option value="pefile" />
+          <option value="pillow" />
+          <option value="pip" />
+          <option value="pycparser" />
+          <option value="pyinstaller" />
+          <option value="pyinstaller-hooks-contrib" />
+          <option value="PyMuPDF" />
+          <option value="PyNaCl" />
+          <option value="pyparsing" />
+          <option value="PyQt5_sip" />
+          <option value="pyqtgraph" />
+          <option value="PyQtWebEngine" />
+          <option value="PyQtWebEngine-Qt5" />
+          <option value="PyYAML" />
+          <option value="scapy" />
+          <option value="scipy" />
+          <option value="setuptools" />
+          <option value="sip" />
+          <option value="tomli" />
+          <option value="tzdata" />
+          <option value="urllib3" />
+        </list>
+      </option>
+    </inspection_tool>
+  </profile>
+</component>

@@ -1,0 +1,143 @@
+####################################################
+# COHI-Player-Universal
+# V1.0.0, 24.10.2026
+# Author: Claus Peter Gallenmiller, cpg-radio@gmx.de
+####################################################
+
+# Language of the user interface (dialogs, labels, status messages):
+#   "en"   - English (default)
+#   "de"   - German (Deutsch)
+#   "auto" - follows the system language of the computer (German system -> German,
+#            everything else -> English)
+# A change takes effect after restarting the program. The log file
+# (system_log.log) is always in English, regardless of this setting.
+language: en
+
+# Selects the active output device backend: "stemlab" or "fl2k"
+# (see backend_factory.py)
+hwconfig: fl2k
+
+# For "stemlab": IP address of the device (empty/"0.0.0.0" = search automatically)
+# For "fl2k": not used
+address: 127.0.0.1
+
+filename: i:\
+filename2: h:\COHIRADIA\Spektren
+
+shutdown: false
+# 1.0 = normal/typical modulation level (for STEMlab AND fl2k alike - the
+# automatic level adjustment compensates for the different internal gain
+# scales of the two backends by itself). Only adjust upwards/downwards for
+# unusually quiet/loud recordings.
+autovol: 1.0
+
+# 0 (default) = the automatic level adjustment (AGC) measures only once at
+# the start of a track and does not readjust the gain for the rest of the
+# track. With a value > 0, an additional purely logging intermediate
+# measurement is written to the log file every N seconds (line
+# "AGC diagnostic (not applied): ..."), WITHOUT changing the active gain -
+# for observing how the level of individual recordings changes over their
+# duration before a real continuous readjustment would make sense.
+agc_interval: 0
+
+# Controls the behaviour of the log file (system_log.log):
+#   "session"  - recreated at every program start (default, so the file
+#                does not grow without limit)
+#   "append"   - keeps growing across all program runs (original
+#                behaviour - for longer-term troubleshooting across
+#                several sessions)
+#   "off"      - no log file, output on the console only
+log_mode: session
+
+# Optional, only for hwconfig: fl2k
+# Path to fl2k_file.exe or ffmpeg.exe (digital upconverter pipeline).
+# If omitted, Fl2kBackend uses its built-in default paths
+# (relative to the working directory, see fl2k_backend.py).
+# fl2k_path: C:\path\to\fl2k_file.exe
+# ffmpeg_path: C:\path\to\ffmpeg.exe
+
+# Only for hwconfig: fl2k - which digital upconverter is used:
+#   "ffmpeg" - default, proven, but computationally expensive (e.g. too much
+#              CPU load on a Raspberry Pi 4, see "native"/"cpp")
+#   "native" - upconversion directly in Python/NumPy, without ffmpeg - works
+#              well on the Raspberry Pi 5, but is still too computationally
+#              expensive on the Pi 4 (see fl2k_native_backend.py)
+#   "cpp"    - upconversion with a compiled C++ tool (cohi_native_upconverter,
+#              see cohi_native_upconverter.cpp) - intended for the Raspberry
+#              Pi 4, must be compiled separately beforehand (see the comments
+#              there for the compile command). Default gain not yet
+#              calibrated, see fl2k_cpp_backend.py.
+fl2k_upconverter: ffmpeg
+
+# Optional, only for fl2k_upconverter: cpp
+# Path to cohi_native_upconverter (or .exe on Windows). If omitted,
+# Fl2kCppBackend uses its own default (relative to the working directory
+# or via PATH, see fl2k_cpp_backend.py).
+# fl2k_cpp_upconverter_path: C:\path\to\cohi_native_upconverter.exe
+
+# Program variant: determines both the GUI topology and whether COHI-Stream
+# can be active (replaces the former standalone live_enabled switch - see
+# below). FIRST STEP (more to follow gradually):
+# - "COHI-Player" (default): WAV playback only, no COHI-Stream. Corresponds
+#   to the previous GUI (intended for the Raspberry Pi 4).
+# - "COHI-Stream": internet live streams only, no WAV playback.
+# - "COHI-Player+Stream": both combined (intended for the Raspberry Pi 5).
+program_variant: COHI-Player
+
+# Display size - together with program_variant determines the GUI topology:
+# 1 (default): small display (3.5", previous/current GUI size)
+# 2: larger display (7" or larger)
+display_variant: 1
+
+# Debug displays of the actual output signal (separate windows, outside the
+# actual user interface) - usable for all three program_variant values and
+# both hwconfig values alike. Only useful with display_variant: 2 (there is
+# no room for additional windows on the small 3.5" display) - without
+# effect with display_variant: 1, even if set to true here.
+# debug_spectrum_window: spectrum (top) + waterfall (bottom) in one window
+# debug_timedomain_window: waveform of the output signal in one window
+# Both require the additional Python package pyqtgraph (pip install
+# pyqtgraph --break-system-packages).
+debug_spectrum_window: false
+debug_timedomain_window: false
+
+# COHI-Stream: feeding internet live streams as additional AM carriers,
+# mixed into the same output as the WAV playback (see live_streams.py).
+# Whether COHI-Stream can be active at all is determined by program_variant
+# above (with "COHI-Player" ALWAYS off) - a possible separate
+# "live_enabled" entry here is NO LONGER evaluated.
+# FIRST STEP: only implemented for fl2k_upconverter: cpp, all stations of
+# the list active at the same time (no individual selection yet). Stations
+# are started once when connecting - a change of program_variant/
+# live_stations_file therefore requires a restart of the program.
+# Path to the station list (columns: Frequenz;Bandbreite;Programmname;URL,
+# semicolon-separated, see Senderliste_COHI-Player+Stream.csv)
+# live_stations_file: C:\path\to\Senderliste_COHI-Player+Stream.csv
+
+# REQUIRED ONLY for hwconfig: stemlab AND program_variant: COHI-Stream
+# (otherwise ignored or not evaluated at all). The STEMlab has no
+# multi-carrier DUC - the live channels are instead calculated as I/Q
+# baseband RELATIVE to this LO frequency (the reverse direction of the
+# device-side DUC), and the device then mixes the complete signal back up to
+# the target frequencies with exactly this LO. In the combined mode
+# (COHI-Player+Stream) LO/sample rate are instead taken automatically from
+# the WAV file (see there) - these two values are then superfluous and are
+# ignored.
+# stemlab_live_lo_freq: 1125000
+# Must be one of the discrete values supported by the STEMlab (Hz):
+# 20000, 50000, 100000, 250000, 500000, 1250000, 2500000 (see
+# stemlab_backend.identify()). It also determines how far the live channels
+# may be from the LO (Nyquist relative to the LO:
+# |channel frequency - LO| + half the audio bandwidth <= sample rate/2).
+# 1250000 covers the entire approx. 1080 kHz wide MW band (526.5-1606.5 kHz)
+# with +-625 kHz around the LO and halves the data rate to be transmitted to
+# the STEMlab compared with 2500000 (5 instead of 10 MB/s) - real suspicion
+# found in the field (see project conversation): the higher data rate could
+# reach the capacity limit of the receiving side (STEMlab) sooner, which
+# showed up as crackling, while COHI-Player (typically running at the sample
+# rate of the WAV file, mostly 1250000) was not affected by it.
+# stemlab_live_sample_rate: 1250000
+
+# Path to cohi_stemlab_live_upconverter (optional - without it the tool
+# must be in the PATH)
+# stemlab_live_upconverter_path: /home/pi/cohi_stemlab_live_upconverter

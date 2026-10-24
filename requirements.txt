@@ -1,0 +1,23 @@
+####################################################
+# COHI-Player-Universal
+# V1.0.0, 24.10.2026
+# Author: Claus Peter Gallenmiller, cpg-radio@gmx.de
+####################################################
+
+# Install with:
+#   pip install -r requirements.txt --break-system-packages
+#
+# On Raspberry Pi OS, PyQt5 is better installed from the system packages
+# (pip would have to build it from source):
+#   sudo apt install python3-pyqt5 qttranslations5-l10n
+
+PyQt5
+PyYAML
+numpy
+psutil
+paramiko
+zeroconf
+
+# Optional - only needed for the debug windows
+# (debug_spectrum_window / debug_timedomain_window in config_sdr.yaml):
+# pyqtgraph
