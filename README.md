@@ -2,13 +2,13 @@
 
 **Version 1.0.0** · Author: Claus Peter Gallenmiller · License: [GPL-3.0](LICENSE)
 
-COHI-Player turns a Raspberry Pi into a small "broadcast station" for vintage radios. It replays recordings of complete AM broadcast bands and/or current internet radio streams on several freely selectable carrier frequencies at the same time, so that an old receiver can be tuned across the dial just like in its day. 
+COHI-Player turns a Raspberry Pi or PC into a small "broadcast station" for vintage radios. It replays recordings of complete AM broadcast bands and/or current internet radio streams on several freely selectable carrier frequencies at the same time, so that an old receiver can be tuned across the dial just like in its day. 
 
 COHI-Player is part of the COHIRADIA project. Detailed information for installation, hardware setup and an archive with many recordings from 2006 on can be found on [COHIRADIA](https://www.cohiradia.org/).
 
 The radio frequency signal is generated either by an **STEMlab / Red Pitaya** board or by an inexpensive **FL2K USB-to-VGA dongle** (osmo-fl2k).
 
-The COHI-Player does not need any manual interaction for loading or starting the playback of a spectrum file. It starts automatically to play all spectrum wav files stored on an USB stick or any internal directory. Thus, it is an ideal source to simulate antenna signals for historic radio receivers in large collections or museums.
+The COHI-Player-Universal does not need any manual interaction for loading or starting the playback of a spectrum file. It starts automatically to play all spectrum wav files stored on an USB stick or any internal directory. Thus, it is an ideal source to simulate antenna signals for historic radio receivers in large collections or museums.
 
 > **Important – please read before use:** The output of this software is a real RF signal in the medium wave band. Transmitting on these frequencies without a licence is illegal in most countries and can disturb other services. Connect the output to the receiver **by cable** (e.g. via a suitable attenuator to the antenna input) or use a coupling loop with negligible radiation. You are responsible for operating the setup in compliance with your local regulations.
 
@@ -77,7 +77,7 @@ Combines both: a band recording plus live stream carriers. On the small 3.5" dis
 - RF output, one of:
   - **STEMlab 125-14 / Red Pitaya** with the COHI STEMlab firmware image (see 4.4), connected via Ethernet
   - **FL2K USB-to-VGA dongle** (chip FL2000), used with osmo-fl2k
-- Internet connection (only for COHI-Stream / COHI-Player+Stream)
+- Internet connection (only for COHI-Stream / COHI-Player+Stream). It is stronly recommended to use a wired LAN connection to avoid dropouts in the sound signal.
 
 ### 3.2 Operating systems
 
@@ -90,6 +90,20 @@ Combines both: a band recording plus live stream carriers. On the small 3.5" dis
 | Configuration tools | ✔ | ✔ |
 
 The live stream modes need the compiled C++ tools; a Windows build of these tools is not provided.
+
+### 3.3 Performance depending om HW
+
+| Program variant | Raspberry Pi 4 | Raspberry Pi 5 |
+|---|:-:|:-:|
+| COHI-Player with STEMlab | ✔ | ✔ |
+| COHI-Player with FL2K (`ffmpeg` or `native`) | not possible | ✔ |
+| COHI-Player with FL2K (`cpp`) | ✔ | ✔ |
+| COHI-Stream with STEMlab | > 25 live streams | > 50 live streams |
+| COHI-Stream with FL2K | < 14 live streamns | > 40 live streams |
+| COHI-Player+Stream with STEMlab | WAV + > 25 live streams | WAV + > 50 live streams |
+| COHI-Player+Stream with FL2K | not possible | WAV + > 40 live streams |
+
+Estimations, the real achievable capacity may vary on stream data rate and stability and Raspberry Pi memory size.
 
 ---
 
@@ -143,8 +157,8 @@ Note: with `shutdown: true` in `config_sdr.yaml` the program also shuts down the
 
 The STEMlab needs a special firmware image. Download the image and follow its installation guide:
 
-- Firmware image: **TODO: link**
-- Installation guide: **TODO: link**
+- Firmware image: **T[STEMlab125 COHIRADIA V1.0](https://cohiradia.radiomuseum.org/download/software/cohiradia_STEMLAB125_v1.0.img)**
+- Installation guide: **[COHIRADIA pages](https://www.cohiradia.org/de/docs/getting_started/installation/raspberry-pi-stemlab-linux-cohi-player-mini)**
 
 The STEMlab is found automatically on the local network (leave `address` empty or set it to `0.0.0.0`), or its IP address can be entered in `config_sdr.yaml`.
 
