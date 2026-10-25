@@ -109,6 +109,8 @@ Estimations, the real achievable capacity may vary on stream data rate and stabi
 
 ## 4. Installation
 
+There are preconfigured plug&play-ready images availble for Raspberry Pi 4 and Raspberry Pi 5 at the [COHIRADIA webpage](https://www.cohiradia.org/). If you are an expert, you can follow the steps below to configure your own system.
+
 ### 4.1 Raspberry Pi OS
 
 Download the release (or clone the repository) into a directory of your choice, e.g. `~/cohi-player`, and change into it.
