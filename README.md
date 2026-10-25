@@ -157,7 +157,7 @@ Note: with `shutdown: true` in `config_sdr.yaml` the program also shuts down the
 
 The STEMlab needs a special firmware image. Download the image and follow its installation guide:
 
-- Firmware image: **T[STEMlab125 COHIRADIA V1.0](https://cohiradia.radiomuseum.org/download/software/cohiradia_STEMLAB125_v1.0.img)**
+- Firmware image: **[STEMlab125 COHIRADIA V1.0](https://cohiradia.radiomuseum.org/download/software/cohiradia_STEMLAB125_v1.0.img)**
 - Installation guide: **[COHIRADIA pages](https://www.cohiradia.org/de/docs/getting_started/installation/raspberry-pi-stemlab-linux-cohi-player-mini)**
 
 The STEMlab is found automatically on the local network (leave `address` empty or set it to `0.0.0.0`), or its IP address can be entered in `config_sdr.yaml`.
