@@ -163,10 +163,4 @@ cython_debug/
 .vscode
 
 #my sources:
-Buttons_Halbrettung.pptx
-diagnostics.txt
-MWLIST_Volltabelle_old.xlsx
-*.png
-*.xlsx
-*.docx
-/sources/ffmpeg-master-latest-win64-gpl-shared/
+
