@@ -91,7 +91,7 @@ Combines both: a band recording plus live stream carriers. On the small 3.5" dis
 
 The live stream modes need the compiled C++ tools; a Windows build of these tools is not provided.
 
-### 3.3 Performance depending om HW
+### 3.3 Performance depending on Raspberry Pi HW
 
 | Program variant | Raspberry Pi 4 | Raspberry Pi 5 |
 |---|:-:|:-:|
@@ -103,7 +103,7 @@ The live stream modes need the compiled C++ tools; a Windows build of these tool
 | COHI-Player+Stream with STEMlab | WAV + > 25 live streams | WAV + > 50 live streams |
 | COHI-Player+Stream with FL2K | not possible | WAV + > 40 live streams |
 
-Estimations, the real achievable capacity may vary on stream data rate and stability and Raspberry Pi memory size.
+Estimations, the real achievable capacity may vary on stream data rate and stability and Raspberry Pi memory size. Performance on PC based Linux installations depends heavily on installed CPU. 
 
 ---
 
