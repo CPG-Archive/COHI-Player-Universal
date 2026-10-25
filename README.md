@@ -99,9 +99,9 @@ The live stream modes need the compiled C++ tools; a Windows build of these tool
 | COHI-Player with FL2K (`ffmpeg` or `native`) | not possible | ✔ |
 | COHI-Player with FL2K (`cpp`) | ✔ | ✔ |
 | COHI-Stream with STEMlab | > 25 live streams | > 50 live streams |
-| COHI-Stream with FL2K | < 14 live streamns | > 40 live streams |
+| COHI-Stream with FL2K (only `cpp`) | < 14 live streamns | > 40 live streams |
 | COHI-Player+Stream with STEMlab | WAV + > 25 live streams | WAV + > 50 live streams |
-| COHI-Player+Stream with FL2K | not possible | WAV + > 40 live streams |
+| COHI-Player+Stream with FL2K (only `cpp`) | not possible | WAV + > 40 live streams |
 
 Estimations, the real achievable capacity may vary on stream data rate and stability and Raspberry Pi memory size. Performance on PC based Linux installations depends heavily on installed CPU. 
 
