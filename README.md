@@ -10,7 +10,7 @@ The radio frequency signal is generated either by an **STEMlab / Red Pitaya** bo
 
 The COHI-Player-Universal does not need any manual interaction for loading or starting the playback of a spectrum file. It starts automatically to play all spectrum wav files stored on an USB stick or any internal directory. Thus, it is an ideal source to simulate antenna signals for historic radio receivers in large collections or museums.
 
-> **Important – please read before use:** The output of this software is a real RF signal in the medium wave band. Transmitting on these frequencies without a licence is illegal in most countries and can disturb other services. Connect the output to the receiver **by cable** (e.g. via a suitable attenuator to the antenna input) or use a coupling loop with negligible radiation. You are responsible for operating the setup in compliance with your local regulations.
+> **Important – please read before use:** The output of this software is a real RF signal in the medium wave band. Transmitting on these frequencies without a licence is illegal in most countries and can disturb other services. Connect the output to the receiver **by cable** and insulating transformer (please carefully read these [instructions](https://www.cohiradia.org/de/docs/getting_started/koppelgeraet/)) to the antenna input or use a coupling loop with negligible radiation. You are responsible for operating the setup in compliance with your local regulations.
 
 ---
 
@@ -41,7 +41,7 @@ Replays I/Q WAV recordings in the SDR formats "auxi" (SDRuno, including chained 
 >
 > - The configured directories are searched **including all subdirectories**; the recordings are played in alphabetical order.
 > - On Linux the ending is case-sensitive: `_0.WAV` is **not** found.
-> - Long recordings that are split into several files (`…_1.wav`, `…_2.wav`, …) are linked via the "nextfilename" entry in the WAV header. Only the first file (`_0.wav`) is listed; the following parts are played automatically.
+> - Long recordings that are split into several files (`…_1.wav`, `…_2.wav`, …) are usually linked via the "nextfilename" entry in the WAV header in case the files have standard wav headers as defined for COHIRADIA. Only the first file (`_0.wav`) is listed; the following parts are played automatically.
 
 ### 2.2 COHI-Stream
 
@@ -98,20 +98,20 @@ The live stream modes need the compiled C++ tools; a Windows build of these tool
 | COHI-Player with STEMlab | ✔ | ✔ |
 | COHI-Player with FL2K (`ffmpeg` or `native`) | not possible | ✔ |
 | COHI-Player with FL2K (`cpp`) | ✔ | ✔ |
-| COHI-Stream with STEMlab | > 25 live streams | > 50 live streams |
+| COHI-Stream with STEMlab | < 25 live streams | > 50 live streams |
 | COHI-Stream with FL2K (only `cpp`) | < 14 live streamns | > 40 live streams |
-| COHI-Player+Stream with STEMlab | WAV + > 25 live streams | WAV + > 50 live streams |
+| COHI-Player+Stream with STEMlab | WAV + < 25 live streams | WAV + > 50 live streams |
 | COHI-Player+Stream with FL2K (only `cpp`) | not possible | WAV + > 40 live streams |
 
-Estimations, the real achievable capacity may vary on stream data rate and stability and Raspberry Pi memory size. Performance on PC based Linux installations depends heavily on installed CPU. 
+The number of possible carriers in the above table are only estimations, the real achievable capacity may vary on stream data rate and stability and Raspberry Pi memory size. Performance on PC based Linux installations depends heavily on installed CPU. 
 
 ---
 
 ## 4. Installation
 
-There are preconfigured plug&play-ready images availble for Raspberry Pi 4 and Raspberry Pi 5 at the [COHIRADIA webpage](https://www.cohiradia.org/). These images can be simply copied to a SD card to get a fully working COHIRADIA system.
+There are preconfigured plug&play-ready images availble for Raspberry Pi 4 and Raspberry Pi 5 at the [COHIRADIA webpage]([https://www.cohiradia.org/](https://www.cohiradia.org/de/docs/getting_started/installation/)). These images can be simply copied to a SD card to get a fully working COHIRADIA system.
 
-If you are an expert, please follow the instructions below to configure your own system from scratch.
+If you are an expert, then you can configure your own system from scratch. In that case please follow the instructions below:
 
 ### 4.1 Raspberry Pi OS
 
