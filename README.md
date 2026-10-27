@@ -41,7 +41,7 @@ Replays I/Q WAV recordings in the SDR formats "auxi" (SDRuno, including chained 
 >
 > - The configured directories are searched **including all subdirectories**; the recordings are played in alphabetical order.
 > - On Linux the ending is case-sensitive: `_0.WAV` is **not** found.
-> - Long recordings that are split into several files (`…_1.wav`, `…_2.wav`, …) are usually linked via the "nextfilename" entry in the WAV header in case the files have standard wav headers as defined for COHIRADIA. Only the first file (`_0.wav`) is listed; the following parts are played automatically.
+> - Long recordings that are split into several files (`…_1.wav`, `…_2.wav`, …) are usually linked via the "nextfilename" entry in the WAV header in case the files have standard wav headers as required for COHIRADIA. Only the first file (`_0.wav`) is listed; the following parts are played automatically.
 
 ### 2.2 COHI-Stream
 
