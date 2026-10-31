@@ -1,6 +1,6 @@
 ####################################################
 # COHI-Player-Universal
-# V1.0.0, 24.10.2026
+# V1.0.1, 31.10.2026
 # Author: Claus Peter Gallenmiller, cpg-radio@gmx.de
 ####################################################
 
@@ -80,6 +80,7 @@ if _PYQTGRAPH_AVAILABLE:
             self._waterfall_buffer = None
             self._sample_rate = None
             self._freqs_full = None
+            self._view_key = None
 
             layout = QVBoxLayout(self)
 
@@ -118,6 +119,10 @@ if _PYQTGRAPH_AVAILABLE:
             layout.addWidget(self.waterfall_plot, stretch=1)
 
             self.waterfall_plot.setXLink(self.spectrum_plot)
+            self.spectrum_plot.disableAutoRange()
+            self.waterfall_plot.disableAutoRange()
+            self.spectrum_plot.getAxis("left").setWidth(70)
+            self.waterfall_plot.getAxis("left").setWidth(70)
 
             bridge.dataReady.connect(self._on_data, type=Qt.QueuedConnection)
 
@@ -157,7 +162,15 @@ if _PYQTGRAPH_AVAILABLE:
             self._waterfall_buffer.push(spectrum_db)
             image = self._waterfall_buffer.get_image()
             self.waterfall_image.setImage(image.T[:, ::-1], autoLevels=False)
-            self.waterfall_image.setRect(freqs[0], 0, freqs[-1] - freqs[0], WATERFALL_ROWS)
+            f_min = float(freqs[0])
+            f_max = float(freqs[-1])
+            self.waterfall_image.setRect(f_min, 0.0, f_max - f_min, float(WATERFALL_ROWS))
+
+            view_key = (start, stop, float(lo_freq_hz), float(sample_rate))
+            if view_key != self._view_key:
+                self._view_key = view_key
+                self.spectrum_plot.setXRange(f_min, f_max, padding=0)
+                self.waterfall_plot.setYRange(0.0, float(WATERFALL_ROWS), padding=0)
 
     class TimeDomainWindow(QWidget):
         def __init__(self, bridge, is_complex, parent=None):
