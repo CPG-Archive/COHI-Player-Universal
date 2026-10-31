@@ -149,7 +149,32 @@ make
 
 > **Always compile on the target device.** The tools are optimised for the CPU they are built on (`-march=native`). A binary compiled on a Raspberry Pi 5 crashes silently on a Raspberry Pi 4. If you move the installation to another Pi model, run `make clean && make` there.
 
-### 4.3 Windows
+### 4.3 Installation of osmo-fl2k drivers
+
+For the correct function of the **FL2K USB-to-VGA dongle** (osmo-fl2k) the correct installation of its driver is essential. Detailed information can be found in the [osmo-fl2k wiki](https://osmocom.org/projects/osmo-fl2k/wiki). 
+
+Step 1: Open a terminal and install the required build tools and libusb headers: 
+```bash
+sudo apt update
+sudo apt install libusb-1.0-0-dev cmake git make gcc -y
+```
+Step 2: Clone the source code from the official Osmocom Gitea repository into a dedicated directory, e.g. ~/home/YOURUSERNAME/osmotools and build it: 
+```bash
+git clone https://gitea.osmocom.org/sdr/osmo-fl2k
+mkdir osmo-fl2k/build
+cd osmo-fl2k/build
+cmake ../ -DINSTALL_UDEV_RULES=ON
+make -j$(nproc)
+sudo make install
+sudo ldconfig
+```
+Step 3: Reload Udev Rules to allow non-root users to access the device:
+```bash
+sudo udevadm control -R
+sudo udevadm trigger
+```
+
+### 4.4 Windows
 
 1. Install Python 3 from [python.org](https://www.python.org/) and run `pip install -r requirements.txt` in the program directory.
 2. **For FL2K:** install the FL2K driver and the Windows build of osmo-fl2k (`fl2k_file.exe`), and download a Windows build of ffmpeg. Enter both paths in `config_sdr.yaml` (`fl2k_path`, `ffmpeg_path`).
@@ -157,7 +182,7 @@ make
 
 Note: with `shutdown: true` in `config_sdr.yaml` the program also shuts down the **Windows PC** when it is closed via the shutdown button.
 
-### 4.4 Preparing the STEMlab / Red Pitaya
+### 4.5 Preparing the STEMlab / Red Pitaya
 
 The STEMlab needs a special firmware image. Download the image and follow its installation guide:
 
@@ -235,6 +260,8 @@ In COHI-Player+Stream the LO frequency and sample rate are taken from the WAV re
 |---|---|
 | `live_stations_file` | Station list for COHI-Stream, see 5.4 |
 | `debug_spectrum_window`, `debug_timedomain_window` | `true` opens additional windows with spectrum/waterfall and waveform of the output signal. Only with `display_variant: 2`; requires `pyqtgraph` |
+
+The debug option is only working at Raspberry Pi OS / Linux.
 
 Changes to `config_sdr.yaml` take effect after restarting the program.
 
