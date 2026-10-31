@@ -78,6 +78,21 @@ def setup_logging(log_mode):
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         handlers=handlers,
     )
+    sys.excepthook = _log_uncaught_exception
+
+
+def _log_uncaught_exception(exc_type, exc_value, exc_traceback):
+    """sys.excepthook: schreibt jede unbehandelte Ausnahme (auch aus Qt-Slots,
+    die PyQt5 an sys.excepthook weiterreicht) samt Traceback ins Log - vorher
+    erschien sie nur auf der Konsole, nie in system_log.log (echter, gemeldeter
+    Fehler: Startabsturz unter Windows war im Logfile nicht nachvollziehbar).
+    KeyboardInterrupt bleibt unveraendert."""
+    if issubclass(exc_type, KeyboardInterrupt):
+        sys.__excepthook__(exc_type, exc_value, exc_traceback)
+        return
+    logging.getLogger(__name__).critical(
+        "unhandled exception", exc_info=(exc_type, exc_value, exc_traceback))
+    sys.__excepthook__(exc_type, exc_value, exc_traceback)
 
 
 class MainWindow(QMainWindow, Ui_MainWindow):
@@ -503,6 +518,15 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self._debug_spectrum_window_instance = None
         self._debug_timedomain_window_instance = None
         self._debug_data_feed_initialized = False
+
+        if (self.config.hwconfig == "fl2k"
+                and (self.config.debug_spectrum_window or self.config.debug_timedomain_window)
+                and not hasattr(self.system_worker.backend, "set_debug_udp_port")):
+            logger.warning(
+                "debug_spectrum_window/debug_timedomain_window are only available with "
+                "hwconfig: stemlab or fl2k_upconverter: cpp - debug displays disabled")
+            self.config.debug_spectrum_window = False
+            self.config.debug_timedomain_window = False
 
         if hasattr(self, "pushButton_debug_spectrum"):
             self.pushButton_debug_spectrum.setVisible(self.config.debug_spectrum_window)
