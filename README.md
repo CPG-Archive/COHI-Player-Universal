@@ -261,6 +261,8 @@ In COHI-Player+Stream the LO frequency and sample rate are taken from the WAV re
 | `live_stations_file` | Station list for COHI-Stream, see 5.4 |
 | `debug_spectrum_window`, `debug_timedomain_window` | `true` opens additional windows with spectrum/waterfall and waveform of the output signal. Only with `display_variant: 2`; requires `pyqtgraph` |
 
+The debug option is only working at Raspberry Pi OS / Linux.
+
 Changes to `config_sdr.yaml` take effect after restarting the program.
 
 ### 5.3 Language
