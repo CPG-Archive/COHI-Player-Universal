@@ -121,11 +121,11 @@ System packages:
 
 ```bash
 sudo apt update
-sudo apt install python3-pyqt5 qttranslations5-l10n ffmpeg build-essential osmo-fl2k
+sudo apt install python3-pyqt5 qttranslations5-l10n ffmpeg build-essential
 ```
 
 - `qttranslations5-l10n` is only needed for German standard buttons (Yes/No, file dialogs).
-- `osmo-fl2k` is only needed for the FL2K dongle.
+- `osmo-fl2k` is only needed for the FL2K dongle, please compile and install the drivers from source (see 4.3), as the osmo-fl2k package from the package repositories has often proven to be faulty on Raspberry Pi systems.
 
 Python packages:
 
