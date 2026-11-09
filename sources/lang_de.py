@@ -171,6 +171,29 @@ TEXTS = {
     "(For the terminal version without a graphical interface see cohi_config_setup.py)":
         "(Für die Terminal-Version ohne grafische Oberfläche siehe cohi_config_setup.py)",
     "STEMlab (Red Pitaya)": "STEMlab (Red Pitaya)",
+    "smiSDR / parlioSDR (smiSDR or ESP32-P4 via network, 5 / 12.5 MSps)":
+        "smiSDR / parlioSDR (FPGA oder ESP32-P4 über das Netzwerk, 5 / 12,5 MSps)",
+    "NOTE: hwconfig: smisdr - please check smisdr_address, the ports and smisdr_sample_rate in {file} - this tool does NOT set these values.":
+        "HINWEIS: hwconfig: smisdr - bitte smisdr_address, die Ports und smisdr_sample_rate in {file} prüfen - dieses Programm setzt diese Werte NICHT.",
+    "hwconfig: smisdr - please check smisdr_address, the ports and smisdr_sample_rate in config_sdr.yaml - this tool does NOT set these values.":
+        "hwconfig: smisdr - bitte smisdr_address, die Ports und smisdr_sample_rate in config_sdr.yaml prüfen - dieses Programm setzt diese Werte NICHT.",
+    "smiSDR/parlioSDR not reachable at {address}:{port} ({error})":
+        "smiSDR/parlioSDR nicht erreichbar unter {address}:{port} ({error})",
+    "smiSDR/parlioSDR control port {address}:{port} did not accept the width/rate command":
+        "Steuerport {address}:{port} der smiSDR/parlioSDR hat den Befehl width/rate nicht angenommen",
+    "smiSDR/parlioSDR data port {address}:{port} not reachable ({error})":
+        "Datenport {address}:{port} der smiSDR/parlioSDR nicht erreichbar ({error})",
+    "recording (up to {edge} Hz) does not fit the smisdr output rate ({setting}) - use a higher smisdr_sample_rate":
+        "Aufnahme (bis {edge} Hz) passt nicht zur smisdr-Ausgaberate ({setting}) - bitte eine höhere smisdr_sample_rate verwenden",
+    "{key} in {file}: without a control port (smisdr_control_port: 0) the rate cannot be set on the device - please give 5, 10 or 12.5 explicitly":
+        "{key} in {file}: ohne Steuerport (smisdr_control_port: 0) kann die Rate am Gerät nicht gesetzt werden - bitte 5, 10 oder 12.5 explizit angeben",
+    "cohi_native_upconverter could not be started: {error}":
+        "cohi_native_upconverter konnte nicht gestartet werden: {error}",
+    "smisdr output started (IF {if_hz} Hz, {rate} MSps, {fmt})":
+        "smisdr-Ausgabe gestartet (ZF {if_hz} Hz, {rate} MSps, {fmt})",
+    "smisdr connection lost: {error}": "smisdr-Verbindung verloren: {error}",
+    "stopping cohi_native_upconverter ...": "beende cohi_native_upconverter ...",
+    "smisdr output stopped": "smisdr-Ausgabe beendet",
     "FL2K (USB VGA dongle as improvised RF transmitter)":
         "FL2K (USB-VGA-Dongle als improvisierter HF-Sender)",
     "WAV playback only (historical recordings)": "nur WAV-Wiedergabe (historische Aufnahmen)",

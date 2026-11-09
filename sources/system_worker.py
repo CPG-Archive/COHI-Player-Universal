@@ -44,7 +44,7 @@ class SystemWorker(QObject):
             self.errorOccurred.emit(tr("device not found / not reachable"))
             return
 
-        if address != self.config.host_address:
+        if address != self.config.host_address and self.config.hwconfig != "smisdr":
             self.config.save_host_address(address)
 
         self.deviceReady.emit(address)

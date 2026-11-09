@@ -519,7 +519,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self._debug_timedomain_window_instance = None
         self._debug_data_feed_initialized = False
 
-        if (self.config.hwconfig == "fl2k"
+        if (self.config.hwconfig in ("fl2k", "smisdr")
                 and (self.config.debug_spectrum_window or self.config.debug_timedomain_window)
                 and not hasattr(self.system_worker.backend, "set_debug_udp_port")):
             logger.warning(
@@ -545,7 +545,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         from debug_windows import DebugDataBridge
         self._debug_bridge = DebugDataBridge()
 
-        if self.config.hwconfig == "fl2k":
+        if self.config.hwconfig in ("fl2k", "smisdr"):
             from debug_windows import _make_debug_udp_socket_free_port
             self._debug_udp_port = _make_debug_udp_socket_free_port()
             self.system_worker.backend.set_debug_udp_port(self._debug_udp_port)
@@ -569,7 +569,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             sample_rate = float(params[0]) if params else 2_500_000.0
             backend.set_debug_tap(
                 lambda iq, lo_freq_hz: self._debug_bridge.dataReady.emit(iq, sample_rate, lo_freq_hz))
-        elif self.config.hwconfig == "fl2k" and self._debug_udp_port:
+        elif self.config.hwconfig in ("fl2k", "smisdr") and self._debug_udp_port:
             sample_rate = float(self.system_worker.backend.target_rate or 10_000_000.0)
             self._debug_stop_event = threading.Event()
             threading.Thread(

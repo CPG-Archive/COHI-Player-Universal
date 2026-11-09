@@ -60,6 +60,12 @@ class PlayerConfig:
         self.live_stations_file = None
         self.stemlab_live_lo_freq = None
         self.stemlab_live_sample_rate = None
+        self.smisdr_address = "127.0.0.1"
+        self.smisdr_data_port = 1234
+        self.smisdr_control_port = 5000
+        self.smisdr_sample_rate = "auto"
+        self.smisdr_format = 8
+        self.smisdr_offset = False
         self.media_paths = []
         self.tracks = []
         self._raw_config = {}
@@ -168,6 +174,8 @@ class PlayerConfig:
             else:
                 self.stemlab_live_sample_rate = value
 
+        self._load_smisdr_settings()
+
         self.log_mode = normalize_log_mode(self._raw_config.get("log_mode", DEFAULT_LOG_MODE))
         if self.log_mode not in VALID_LOG_MODES:
             raise ConfigError(tr("invalid value for {key} in {file} (known: {valid})").format(
@@ -178,6 +186,53 @@ class PlayerConfig:
         if raw_language is not None and str(raw_language).strip().lower() not in ("en", "de", "auto"):
             logger.warning("unknown value for language in %s: %r (known: en, de, auto) - using English",
                            self.CONFIG_FILE, raw_language)
+
+    def _load_smisdr_settings(self):
+        from smisdr_backend import SMISDR_FORMATS, parse_control_port, parse_rate_setting
+
+        raw = self._raw_config
+        self.smisdr_address = str(raw.get("smisdr_address") or "127.0.0.1").strip()
+        self.smisdr_offset = bool(raw.get("smisdr_offset", False))
+
+        if self.hwconfig != "smisdr":
+            return
+
+        try:
+            data_port = int(raw.get("smisdr_data_port", 1234))
+            if not 1 <= data_port <= 65535:
+                raise ValueError("port out of range 1..65535")
+        except (TypeError, ValueError) as exc:
+            raise ConfigError(tr("invalid value for {key} in {file}: {error}").format(
+                key="smisdr_data_port", file=self.CONFIG_FILE, error=exc)) from exc
+        self.smisdr_data_port = data_port
+
+        try:
+            self.smisdr_control_port = parse_control_port(raw.get("smisdr_control_port", 5000))
+        except (TypeError, ValueError) as exc:
+            raise ConfigError(tr("invalid value for {key} in {file}: {error}").format(
+                key="smisdr_control_port", file=self.CONFIG_FILE, error=exc)) from exc
+
+        rate = parse_rate_setting(raw.get("smisdr_sample_rate", "auto"))
+        if rate is None:
+            raise ConfigError(tr("invalid value for {key} in {file}: '{value}' (valid: {valid})").format(
+                key="smisdr_sample_rate", file=self.CONFIG_FILE,
+                value=raw.get("smisdr_sample_rate"), valid="5, 10, 12.5, auto"))
+        if rate == "auto" and self.smisdr_control_port is None:
+            raise ConfigError(tr(
+                "{key} in {file}: without a control port (smisdr_control_port: 0) the rate "
+                "cannot be set on the device - please give 5, 10 or 12.5 explicitly").format(
+                key="smisdr_sample_rate", file=self.CONFIG_FILE))
+        self.smisdr_sample_rate = rate
+
+        try:
+            sample_format = int(raw.get("smisdr_format", 8))
+        except (TypeError, ValueError):
+            sample_format = None
+        if sample_format not in SMISDR_FORMATS:
+            raise ConfigError(tr("invalid value for {key} in {file}: '{value}' (valid: {valid})").format(
+                key="smisdr_format", file=self.CONFIG_FILE,
+                value=raw.get("smisdr_format"), valid=", ".join(str(f) for f in SMISDR_FORMATS)))
+        self.smisdr_format = sample_format
 
     def save_host_address(self, address):
         self.host_address = address

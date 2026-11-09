@@ -27,6 +27,8 @@ language: en
 # Output hardware:
 #   stemlab - STEMlab 125-14 / Red Pitaya (with the COHI STEMlab firmware)
 #   fl2k    - FL2K USB-to-VGA dongle (osmo-fl2k)
+#   smisdr  - smiSDR / parlioSDR (radiolab81) via TCP/IP, 5 or 12.5 MSps,
+#             see the smiSDR / parlioSDR section below
 hwconfig: fl2k
 
 # Only for hwconfig: stemlab - IP address of the STEMlab.
@@ -72,8 +74,8 @@ log_mode: session
 #   COHI-Player        - replay of WAV band recordings only (default)
 #   COHI-Stream        - internet live streams only
 #   COHI-Player+Stream - both at the same time (recommended: Raspberry Pi 5)
-# The live stream modes require hwconfig: stemlab, or hwconfig: fl2k together
-# with fl2k_upconverter: cpp.
+# The live stream modes require hwconfig: stemlab or smisdr, or hwconfig: fl2k
+# together with fl2k_upconverter: cpp.
 program_variant: COHI-Player
 
 # Display size:
@@ -109,9 +111,47 @@ fl2k_upconverter: cpp
 # fl2k_path: C:\fl2k\fl2k_file.exe
 # ffmpeg_path: C:\ffmpeg\bin\ffmpeg.exe
 
-# Optional path to the C++ tool cohi_native_upconverter. Without this entry it
-# is expected in the program directory.
+# Optional path to the C++ tool cohi_native_upconverter (also used for
+# hwconfig: smisdr). Without this entry it is expected in the program directory.
 # fl2k_cpp_upconverter_path: /home/pi/cohi-player/cohi_native_upconverter
+
+
+# ---------------------------------------------------------------------------
+# smiSDR / parlioSDR (only for hwconfig: smisdr)
+# ---------------------------------------------------------------------------
+
+# The digital upconversion is done by the same C++ tool as for FL2K
+# (cohi_native_upconverter, compile it with "make"); the RF samples are sent
+# to the device via TCP: width/rate commands to the control port, the samples
+# to the data port.
+
+# IP address (or host name) of the smiSDR / parlioSDR:
+smisdr_address: 127.0.0.1
+
+# TCP ports of the device (data = sample stream, control = width/rate).
+# smisdr_control_port: 0 switches the control port OFF - for target hardware
+# that is already fixed to its rate and width. Then nothing is sent to it,
+# smisdr_sample_rate and smisdr_format must match the hardware, and
+# smisdr_sample_rate must not be "auto".
+smisdr_data_port: 1234
+smisdr_control_port: 5000
+
+# Output sample rate in MSps - exactly one of:
+#   5    - 5 MSps (all of LW/MW and the lower part of SW)
+#   10   - 10 MSps (up to approx. 4.7 MHz)
+#   12.5 - 12.5 MSps (needed above approx. 4.7 MHz, e.g. SW bands)
+#   auto - the lowest of these rates at which the recording fits
+#          (not possible without control port)
+smisdr_sample_rate: auto
+
+# Sample format on the data port:
+#   8   - 8 bit native (int8)
+#   816 - 8 bit values in 16 bit words (int16, little endian)
+smisdr_format: 8
+
+# Only for smisdr_format: 8 - true = unsigned 8 bit (DC offset +128),
+# false = signed 8 bit (default, as on SMI).
+smisdr_offset: false
 
 
 # ---------------------------------------------------------------------------
