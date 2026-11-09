@@ -307,7 +307,7 @@ An example list with 31 working internet radio stations (many of them with music
 
 The list can be loaded, edited and saved directly in the program (buttons *Load*, *Save*, *Edit*). The program remembers the last list used and loads it again at the next start; `live_stations_file` is only used if no list has been loaded before. Faulty lines are skipped and noted in the log file.
 
-### 5.5 smiSDR / parlioSDR
+### 5.5 smiSDR / parlioSDR (and fl2k_tcp)
 
 With `hwconfig: smisdr` COHI-Player feeds a [smiSDR / parlioSDR](https://github.com/radiolab81/smisdr) with ready-made RF samples, using the same network interface as the COHIRADIAStreamer (classic mode, not the I/Q in-band mode):
 
@@ -332,6 +332,57 @@ i.) Playing cohiradia wav file to parlio-engine
 
 ii.) Real-time generation of medium-wave transmitters from Internet radio stations (using the same principle as AMWaveSynth)
 ![wavesynth](/www/synthetic_mw_stations_parlio.png)
+
+
+**fl2k_tcp as a “fake” smiSDR/parlioSDR**: While the COHI Player's pure fl2k mode uses the fl2k_file playback process, a remote or local fl2k_tcp process from the osmo-fl2k package can be used as a “fake” smiSDR/parlioSDR for testing purpose. All methods using raw RF samples over TCP/IP.
+
+To do this, set the output hardware to smisdr in the config_sdr.yaml file. 
+
+```bash
+hwconfig: smisdr
+```
+
+For a local fl2k_tcp process, leave the IP address set to localhost (127.0.0.1); otherwise, make changes here:
+
+```bash
+# IP address (or host name) of the smiSDR / parlioSDR:
+smisdr_address: 127.0.0.1
+
+```
+
+An fl2k_tcp process is not normally configured dynamically via port 5000, which is why smisdr_control_port is set to 0. Select a sample rate of 10 MSps and an 8-bit (native) format.
+
+
+```bash
+# TCP ports of the device (data = sample stream, control = width/rate).
+# smisdr_control_port: 0 switches the control port OFF - for target hardware
+# that is already fixed to its rate and width. Then nothing is sent to it,
+# smisdr_sample_rate and smisdr_format must match the hardware, and
+# smisdr_sample_rate must not be "auto".
+smisdr_data_port: 1234
+smisdr_control_port: 0
+
+# Output sample rate in MSps - exactly one of:
+#   5    - 5 MSps (all of LW/MW and the lower part of SW)
+#   10   - 10 MSps (up to approx. 4.7 MHz)
+#   12.5 - 12.5 MSps (needed above approx. 4.7 MHz, e.g. SW bands)
+#   auto - the lowest of these rates at which the recording fits
+#          (not possible without control port)
+smisdr_sample_rate: 10
+
+# Sample format on the data port:
+#   8   - 8 bit native (int8)
+#   816 - 8 bit values in 16 bit words (int16, little endian)
+smisdr_format: 8
+```
+
+Start the fl2k_tcp process and socat before (!) establishing the connection with COHI-Player-Universal
+
+```bash
+socat -u TCP4-LISTEN:1234,reuseaddr TCP4-LISTEN:1235,reuseaddr
+sudo fl2k_tcp -s 10000000 -p 1235
+
+```
 
 ---
 
