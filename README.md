@@ -320,6 +320,11 @@ Which rate is possible depends on the recording: the highest signal frequency (c
 
 **Hardware with a fixed configuration:** if the target hardware is already set to its rate and width and has no (or no needed) control port, set `smisdr_control_port: 0`. The player then starts without touching port 5000 - no width/rate commands are sent and the control port is not tested at start. Because nothing can be set on the device any more, `smisdr_sample_rate` must then be given explicitly (not `auto`) and, together with `smisdr_format`, has to match the hardware; recordings that do not fit the fixed rate are reported as an error.
 
+**Current limitations:**
+
+- **Only 8 bit quantisation.** The upconverter used for FL2K (`cohi_native_upconverter`) is also used for smiSDR / parlioSDR, and it delivers 8 bit samples only. Therefore only the modes **8 bit native** (`smisdr_format: 8`) and **8 bit in 16 bit** (`smisdr_format: 816`) are available. DACs with 10, 12 or 14 bit can be driven in these modes, but only with 8 bit resolution. Full use of 10, 12 and 14 bit DACs requires a new upconverter with a higher output resolution, which has not been written yet.
+- **No I/Q in-band signaling.** The I/Q mode of the smiSDR / parlioSDR gateware (16 bit with in-band signaling, where the digital upconversion is done in gateware and only the I/Q baseband is transmitted) is **not implemented yet**. COHI-Player always sends ready-made RF samples (classic mode).
+
 Quick test on real hardware: 
 
 i.) Playing cohiradia wav file to parlio-engine
