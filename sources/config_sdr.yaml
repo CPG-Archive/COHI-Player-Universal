@@ -144,9 +144,15 @@ smisdr_control_port: 5000
 #          (not possible without control port)
 smisdr_sample_rate: auto
 
-# Sample format on the data port:
+# Sample format on the data port (the "width" of the DAC bus):
 #   8   - 8 bit native (int8)
 #   816 - 8 bit values in 16 bit words (int16, little endian)
+#   10, 12, 14 - DAC with 10 / 12 / 14 bit, int16 little endian, full scale
+#         +-511 / +-2047 / +-8191 (width 16). cohi_native_upconverter then
+#         quantises finer (--output-bits); at the same signal level the
+#         waveform is identical to the 8 bit output.
+# Please note the data rate: 16 bit words need 2 bytes per sample, i.e. up to
+# 25 MByte/s (200 Mbit/s) at 12.5 MSps - from 10 MSps on Gigabit Ethernet is needed.
 smisdr_format: 8
 
 # Only for smisdr_format: 8 - true = unsigned 8 bit (DC offset +128),

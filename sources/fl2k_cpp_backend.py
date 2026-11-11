@@ -40,6 +40,9 @@ _AUSLASTUNG_LINE_RE = re.compile(
 
 
 class Fl2kCppBackend(Fl2kBackend):
+    # additional command line arguments for cohi_native_upconverter (used by subclasses)
+    upconverter_extra_args = ()
+
     default_gain = 0.4
 
     def __init__(self, fl2k_tool_path=None, upconverter_tool_path=None,
@@ -212,6 +215,7 @@ class Fl2kCppBackend(Fl2kBackend):
             "--output-shift", str(OUTPUT_SHIFT),
             "--fir-taps", str(FIR_TAPS),
         ]
+        command += list(self.upconverter_extra_args)
         if self._live_stations:
             command += live_streams.build_live_channel_args(self._live_stations)
             command += ["--live-gain-shift", str(LIVE_GAIN_SHIFT)]

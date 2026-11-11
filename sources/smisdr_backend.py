@@ -1,3 +1,9 @@
+####################################################
+# COHI-Player-Universal
+# V1.1.0, 11.11.2026
+# Author: Claus Peter Gallenmiller, cpg-radio@gmx.de
+####################################################
+
 # Output backend for smiSDR / parlioSDR (radiolab81), the same network
 # interface that COHIRADIAStreamer uses in its classic (non I/Q) mode:
 #
@@ -9,10 +15,12 @@
 #   data port    (default 1234, TCP): ONE long connection, raw RF samples
 #       8 bit native   : int8   (optionally +128 = unsigned, "DC offset")
 #       8 bit in 16 bit: int16 little endian, values in the 8 bit range
+#       10/12/14 bit   : int16 little endian, full scale +-(2^(bits-1)-1), "width 16"
 #
-# The digital upconversion itself is NOT done here: the unchanged DSP core
-# of this project (cohi_native_upconverter, the same tool as for FL2K) is
-# started with --target-rate 5 MHz or 12.5 MHz. This backend only
+# The digital upconversion itself is NOT done here: the DSP core of this
+# project (cohi_native_upconverter, the same tool as for FL2K) is started
+# with --target-rate 5, 10 or 12.5 MHz (and --output-bits 10/12/14 for the
+# wide formats; without that argument it behaves exactly as before). This backend only
 # configures the device and forwards the upconverter output to the socket.
 
 import logging
@@ -36,7 +44,8 @@ SMISDR_RATES_HZ = (5_000_000, 10_000_000, 12_500_000)
 SMISDR_RATE_AUTO = "auto"
 SMISDR_FORMAT_8 = 8
 SMISDR_FORMAT_8_IN_16 = 816
-SMISDR_FORMATS = (SMISDR_FORMAT_8, SMISDR_FORMAT_8_IN_16)
+SMISDR_FORMATS_WIDE = (10, 12, 14)     # DAC bits, transferred as int16
+SMISDR_FORMATS = (SMISDR_FORMAT_8, SMISDR_FORMAT_8_IN_16) + SMISDR_FORMATS_WIDE
 
 DEFAULT_ADDRESS = "127.0.0.1"
 DEFAULT_DATA_PORT = 1234
@@ -128,7 +137,9 @@ class SmisdrBackend(Fl2kCppBackend):
         self.control_port = control_port  # None = no control port (fixed hardware)
         self.rate_setting = rate_setting
         self.sample_format = sample_format
-        self.offset_binary = bool(offset_binary)
+        self.offset_binary = bool(offset_binary) and sample_format == SMISDR_FORMAT_8
+        if sample_format in SMISDR_FORMATS_WIDE:
+            self.upconverter_extra_args = ("--output-bits", str(sample_format))
         self._net_sock = None
         self._pump_thread = None
         self._pump_stop_event = None
@@ -307,10 +318,14 @@ class SmisdrBackend(Fl2kCppBackend):
     def _format_label(self):
         if self.sample_format == SMISDR_FORMAT_8_IN_16:
             return "8 bit in 16 bit"
+        if self.sample_format in SMISDR_FORMATS_WIDE:
+            return "{} bit in 16 bit".format(self.sample_format)
         return "8 bit unsigned" if self.offset_binary else "8 bit"
 
     def _convert_block(self, raw):
-        """int8 output of the upconverter -> wire format of the DAC."""
+        """int8 output of the upconverter -> wire format of the DAC (only used for
+        8 bit in 16 bit and the unsigned 8 bit format; the 10/12/14 bit formats are
+        already delivered as int16 by the upconverter)."""
         if self.sample_format == SMISDR_FORMAT_8_IN_16:
             return np.frombuffer(raw, dtype=np.int8).astype("<i2").tobytes()
         if self.offset_binary:
@@ -319,7 +334,8 @@ class SmisdrBackend(Fl2kCppBackend):
 
     def _pump_loop(self, process, sock, stop_event):
         """upconverter stdout -> TCP data connection."""
-        passthrough = (self.sample_format == SMISDR_FORMAT_8 and not self.offset_binary)
+        passthrough = (self.sample_format in SMISDR_FORMATS_WIDE
+                       or (self.sample_format == SMISDR_FORMAT_8 and not self.offset_binary))
         stdout_fd = process.stdout.fileno()
         try:
             while not stop_event.is_set():

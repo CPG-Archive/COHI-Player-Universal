@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////
 // COHI-Player-Universal
-// V1.0.0, 24.10.2026
+// V1.1.0, 11.11.2026
 // Author: Claus Peter Gallenmiller, cpg-radio@gmx.de
 ////////////////////////////////////////////////////
 
@@ -47,6 +47,7 @@ struct Args {
     double center_freq = 0.0;
     double target_rate = 0.0;
     int output_shift = 6;
+    int output_bits = 8;
     int fir_taps = 15;
     std::vector<LiveChannelArg> live_channels;
     int live_gain_shift = 2;
@@ -92,6 +93,8 @@ public:
         last_sent_at_ = std::chrono::steady_clock::now() - std::chrono::seconds(1);
     }
 
+    bool enabled() const { return enabled_; }
+
     void maybe_send(const int8_t* data, size_t count) {
         if (!enabled_ || count == 0) return;
         auto now = std::chrono::steady_clock::now();
@@ -118,6 +121,55 @@ private:
     std::chrono::steady_clock::time_point last_sent_at_{};
 };
 
+// Quantisation and output of the finished RF samples.
+//   output_bits = 8 (default): int8, +-127 (stdout: 1 byte per sample) - unchanged behaviour.
+//   output_bits = 10/12/14   : int16 little endian, full scale +-(2^(bits-1)-1), i.e. at the
+//                              same signal level the same waveform as the 8 bit output, only
+//                              with finer quantisation (+-511 / +-2047 / +-8191).
+// The debug UDP stream always carries 8 bit samples (value >> (bits - 8)).
+struct OutputStage {
+    int shift_right = 0;
+    int shift_left = 0;
+    int32_t limit = 127;
+    int bits = 8;
+
+    void init(const Args& args) {
+        bits = args.output_bits;
+        limit = (1 << (bits - 1)) - 1;
+        int net_shift = args.output_shift - (bits - 8);
+        shift_right = net_shift > 0 ? net_shift : 0;
+        shift_left = net_shift < 0 ? -net_shift : 0;
+    }
+
+    bool wide() const { return bits > 8; }
+
+    inline int16_t quantize(int32_t mixed) const {
+        int32_t v = (mixed << shift_left) >> shift_right;
+        if (v > limit) v = limit;
+        else if (v < -limit) v = -limit;
+        return static_cast<int16_t>(v);
+    }
+
+    // Writes one block to stdout (and a copy to the debug UDP sender).
+    void emit(const int16_t* data, size_t n, DebugUdpSender& debug, std::vector<int8_t>& tmp) const {
+        if (n == 0) return;
+        if (!wide()) {
+            if (tmp.size() < n) tmp.resize(n);
+            for (size_t k = 0; k < n; ++k) tmp[k] = static_cast<int8_t>(data[k]);
+            debug.maybe_send(tmp.data(), n);
+            std::fwrite(tmp.data(), sizeof(int8_t), n, stdout);
+        } else {
+            if (debug.enabled()) {
+                if (tmp.size() < n) tmp.resize(n);
+                const int d = bits - 8;
+                for (size_t k = 0; k < n; ++k) tmp[k] = static_cast<int8_t>(data[k] >> d);
+                debug.maybe_send(tmp.data(), n);
+            }
+            std::fwrite(data, sizeof(int16_t), n, stdout);
+        }
+    }
+};
+
 bool parse_args(int argc, char** argv, Args& out) {
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
@@ -135,6 +187,14 @@ bool parse_args(int argc, char** argv, Args& out) {
         } else if (arg == "--output-shift") {
             if (i + 1 >= argc) return false;
             out.output_shift = std::atoi(argv[++i]);
+        } else if (arg == "--output-bits") {
+            if (i + 1 >= argc) return false;
+            out.output_bits = std::atoi(argv[++i]);
+            if (out.output_bits != 8 && out.output_bits != 10 &&
+                out.output_bits != 12 && out.output_bits != 14) {
+                std::fprintf(stderr, "cohi_native_upconverter: --output-bits muss 8, 10, 12 oder 14 sein\n");
+                return false;
+            }
         } else if (arg == "--fir-taps") {
             if (i + 1 >= argc) return false;
             out.fir_taps = std::atoi(argv[++i]);
@@ -428,8 +488,8 @@ int main(int argc, char** argv) {
     if (!parse_args(argc, argv, args)) {
         std::fprintf(stderr,
             "Verwendung: %s --sample-rate HZ --center-freq HZ --target-rate HZ "
-            "[--output-shift N] [--fir-taps N] [--live-channel PORT:FREQ:AUDIORATE ...] "
-            "[--live-gain-shift N]\n", argv[0]);
+            "[--output-shift N] [--output-bits 8|10|12|14] [--fir-taps N] "
+            "[--live-channel PORT:FREQ:AUDIORATE ...] [--live-gain-shift N]\n", argv[0]);
         return 1;
     }
 
@@ -447,6 +507,10 @@ int main(int argc, char** argv) {
     std::setvbuf(stdin, nullptr, _IONBF, 0);
 
     init_luts();
+
+    OutputStage out_stage;
+    out_stage.init(args);
+    std::vector<int8_t> out_tmp;
 
     DebugUdpSender debug_sender;
     debug_sender.init(args.debug_udp_port);
@@ -473,7 +537,7 @@ int main(int argc, char** argv) {
         const size_t block_size = 1024;
         std::vector<int16_t> read_buf(block_size * 2);
         const size_t out_capacity = static_cast<size_t>(block_size * samples_per_input_sample) + 256;
-        std::vector<int8_t> out_buf(out_capacity);
+        std::vector<int16_t> out_buf(out_capacity);
 
         auto load_window_started_at = std::chrono::steady_clock::now();
         double busy_seconds_in_window = 0.0;
@@ -520,12 +584,8 @@ int main(int argc, char** argv) {
                     int32_t s = g_sine_lut[lut_idx];
                     int32_t mixed = ((filt_i * c) - (filt_q * s)) >> 15;
 
-                    int32_t scaled = mixed >> args.output_shift;
-                    if (scaled > 127) scaled = 127;
-                    else if (scaled < -127) scaled = -127;
-
                     if (out_idx < out_capacity) {
-                        out_buf[out_idx++] = static_cast<int8_t>(scaled);
+                        out_buf[out_idx++] = out_stage.quantize(mixed);
                     }
                     input_phase += 1.0;
                 }
@@ -536,8 +596,7 @@ int main(int argc, char** argv) {
 
             auto compute_ended_at = std::chrono::steady_clock::now();
             if (out_idx > 0) {
-                debug_sender.maybe_send(out_buf.data(), out_idx);
-                std::fwrite(out_buf.data(), sizeof(int8_t), out_idx, stdout);
+                out_stage.emit(out_buf.data(), out_idx, debug_sender, out_tmp);
                 std::fflush(stdout);
             }
 
@@ -576,7 +635,7 @@ int main(int argc, char** argv) {
     const size_t n_live_channels = live_channels.size();
 
     const size_t OUTPUT_BATCH_SIZE = 4096;
-    std::vector<int8_t> out_buf(OUTPUT_BATCH_SIZE);
+    std::vector<int16_t> out_buf(OUTPUT_BATCH_SIZE);
 
     auto load_window_started_at = std::chrono::steady_clock::now();
     double busy_seconds_in_window = 0.0;
@@ -648,18 +707,14 @@ int main(int argc, char** argv) {
                 mixed += live_mix >> args.live_gain_shift;
             }
 
-            int32_t scaled = mixed >> args.output_shift;
-            if (scaled > 127) scaled = 127;
-            else if (scaled < -127) scaled = -127;
-            out_buf[out_idx] = static_cast<int8_t>(scaled);
+            out_buf[out_idx] = out_stage.quantize(mixed);
         }
 
         carrier.renormalize();
 
         auto compute_ended_at = std::chrono::steady_clock::now();
 
-        debug_sender.maybe_send(out_buf.data(), OUTPUT_BATCH_SIZE);
-        std::fwrite(out_buf.data(), sizeof(int8_t), OUTPUT_BATCH_SIZE, stdout);
+        out_stage.emit(out_buf.data(), OUTPUT_BATCH_SIZE, debug_sender, out_tmp);
         std::fflush(stdout);
 
         auto batch_ended_at = std::chrono::steady_clock::now();
