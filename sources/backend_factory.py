@@ -10,7 +10,7 @@ from i18n import tr
 
 logger = logging.getLogger(__name__)
 
-KNOWN_HWCONFIGS = ("stemlab", "fl2k")
+KNOWN_HWCONFIGS = ("stemlab", "fl2k", "smisdr")
 
 
 def _resolve_fl2k_upconverter(value):
@@ -47,6 +47,17 @@ def create_backend(config):
                                   program_variant=config.program_variant,
                                   live_stations_file=config.live_stations_file,
                                   live_upconverter_tool_path=config.stemlab_live_upconverter_path)
+    elif config.hwconfig == "smisdr":
+        from smisdr_backend import SmisdrBackend
+        backend = SmisdrBackend(address=config.smisdr_address,
+                                 data_port=config.smisdr_data_port,
+                                 control_port=config.smisdr_control_port,
+                                 rate_setting=config.smisdr_sample_rate,
+                                 sample_format=config.smisdr_format,
+                                 offset_binary=config.smisdr_offset,
+                                 upconverter_tool_path=config.fl2k_cpp_upconverter_path,
+                                 live_enabled=config.live_enabled,
+                                 live_stations_file=config.live_stations_file)
     else:
         raise ValueError(tr("unknown hwconfig '{value}' in config_sdr.yaml (known: {known})").format(
             value=config.hwconfig, known=", ".join(KNOWN_HWCONFIGS)))
@@ -60,4 +71,8 @@ def backend_display_name(config):
         return f"fl2k / {_resolve_fl2k_upconverter(config.fl2k_upconverter)}"
     if config.hwconfig == "stemlab":
         return "STEMlab"
+    if config.hwconfig == "smisdr":
+        rate = config.smisdr_sample_rate
+        rate_text = "auto" if rate == "auto" else f"{rate / 1e6:g} MSps"
+        return f"smisdr / {rate_text}"
     return config.hwconfig

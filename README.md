@@ -6,7 +6,7 @@ COHI-Player turns a Raspberry Pi or PC into a small "broadcast station" for vint
 
 COHI-Player is part of the COHIRADIA project. Detailed information for installation, hardware setup and an archive with many recordings from 2006 on can be found on [COHIRADIA](https://www.cohiradia.org/).
 
-The radio frequency signal is generated either by an **STEMlab / Red Pitaya** board or by an inexpensive **FL2K USB-to-VGA dongle** (osmo-fl2k).
+The radio frequency signal is generated either by an **STEMlab / Red Pitaya** board, by an inexpensive **FL2K USB-to-VGA dongle** (osmo-fl2k) or by a **smiSDR / parlioSDR** (radiolab81) that is fed with RF samples via the network.
 
 The COHI-Player-Universal does not need any manual interaction for loading or starting the playback of a spectrum file. It starts automatically to play all spectrum wav files stored on an USB stick or any internal directory. Thus, it is an ideal source to simulate antenna signals for historic radio receivers in large collections or museums.
 
@@ -65,6 +65,7 @@ Combines both: a band recording plus live stream carriers. On the small 3.5" dis
 | `fl2k` | `cpp` (compiled C++ tool, recommended) | ✔ | ✔ | ✔ |
 | `fl2k` | `native` (Python/NumPy) | ✔ | – | – |
 | `fl2k` | `ffmpeg` | ✔ | – | – |
+| `smisdr` | – (always the compiled C++ tool) | ✔ | ✔ | ✔ |
 
 ---
 
@@ -77,6 +78,7 @@ Combines both: a band recording plus live stream carriers. On the small 3.5" dis
 - RF output, one of:
   - **STEMlab 125-14 / Red Pitaya** with the COHI STEMlab firmware image (see 4.4), connected via Ethernet
   - **FL2K USB-to-VGA dongle** (chip FL2000), used with osmo-fl2k
+  - **smiSDR / parlioSDR** ([smisdr](https://github.com/radiolab81/smisdr) / [parliosdr](https://github.com/radiolab81/parliosdr)), connected via Ethernet (see 5.5)
 - Internet connection (only for COHI-Stream / COHI-Player+Stream). It is stronly recommended to use a wired LAN connection to avoid dropouts in the sound signal.
 
 ### 3.2 Operating systems
@@ -86,6 +88,7 @@ Combines both: a band recording plus live stream carriers. On the small 3.5" dis
 | COHI-Player with STEMlab | ✔ | ✔ |
 | COHI-Player with FL2K (`ffmpeg` or `native`) | ✔ | ✔ |
 | COHI-Player with FL2K (`cpp`) | ✔ | – |
+| COHI-Player with smiSDR / parlioSDR | ✔ | ✔ |
 | COHI-Stream, COHI-Player+Stream | ✔ | – |
 | Configuration tools | ✔ | ✔ |
 
@@ -225,7 +228,7 @@ Both tools accept the path to a different configuration file as an optional argu
 | Key | Values | Meaning |
 |---|---|---|
 | `language` | `en` / `de` / `auto` | Language of the user interface, see 5.3 |
-| `hwconfig` | `stemlab` / `fl2k` | Output hardware |
+| `hwconfig` | `stemlab` / `fl2k` / `smisdr` | Output hardware |
 | `program_variant` | `COHI-Player` / `COHI-Stream` / `COHI-Player+Stream` | Program mode |
 | `display_variant` | `1` / `2` | `1` = 3.5" display (480×320), `2` = 7" or larger |
 | `filename`, `filename2`, `filename3`, … | directory | Directories with the WAV recordings (any number; subdirectories are included, see 2.1) |
@@ -252,6 +255,17 @@ In COHI-Player+Stream the LO frequency and sample rate are taken from the WAV re
 | `fl2k_upconverter` | `cpp` (recommended, required for live streams), `native` (Python, sufficient on a Pi 5) or `ffmpeg` (high CPU load, mainly for Windows) |
 | `fl2k_path`, `ffmpeg_path` | Optional paths to `fl2k_file` and `ffmpeg` (mainly for Windows) |
 | `fl2k_cpp_upconverter_path` | Optional path to `cohi_native_upconverter` |
+
+**smiSDR / parlioSDR**
+
+| Key | Meaning |
+|---|---|
+| `smisdr_address` | IP address or host name of the device (default `127.0.0.1`) |
+| `smisdr_data_port`, `smisdr_control_port` | TCP ports for the sample stream (default `1234`) and the width/rate commands (default `5000`). `smisdr_control_port: 0` switches the control port off, see 5.5 |
+| `smisdr_sample_rate` | Output sample rate in MSps: `5`, `10`, `12.5` or `auto` (the lowest of these rates at which the recording fits) |
+| `smisdr_format` | `8` = 8 bit native (int8), `816` = 8 bit values in 16 bit words (int16, little endian), `10` / `12` / `14` = DAC with 10 / 12 / 14 bit as int16 (little endian, full scale ±511 / ±2047 / ±8191), see 5.5 |
+| `smisdr_offset` | Only with `smisdr_format: 8`: `true` = unsigned 8 bit (DC offset +128), `false` = signed (default) |
+| `fl2k_cpp_upconverter_path` | Optional path to `cohi_native_upconverter` (is used for smisdr as well) |
 
 **Live streams and debugging**
 
@@ -292,6 +306,86 @@ Frequenz;Bandbreite;Programmname;URL
 An example list with 31 working internet radio stations (many of them with music of the 1920s–1960s) is included as **`Web-Streams.csv`** and is preset in `config_sdr.yaml`. Internet streams change their addresses from time to time – if a station stays silent, check its URL.
 
 The list can be loaded, edited and saved directly in the program (buttons *Load*, *Save*, *Edit*). The program remembers the last list used and loads it again at the next start; `live_stations_file` is only used if no list has been loaded before. Faulty lines are skipped and noted in the log file.
+
+### 5.5 smiSDR / parlioSDR (and fl2k_tcp)
+
+With `hwconfig: smisdr` COHI-Player feeds a [smiSDR / parlioSDR](https://github.com/radiolab81/smisdr) with ready-made RF samples, using the same network interface as the COHIRADIAStreamer (classic mode, not the I/Q in-band mode):
+
+1. For every recording the player sends `width 8` (or `width 16` for `smisdr_format: 816`, `10`, `12` and `14`) and `rate 5.0`, `rate 10.0` or `rate 12.5` to the **control port** (TCP, one short connection per command).
+2. Then it opens one connection to the **data port** and streams the RF samples in real time.
+
+The digital upconversion is done by the same C++ tool as for FL2K (`cohi_native_upconverter`, compile with `make`), which is started with a target rate of exactly 5, 10 or 12.5 MHz. Without the new option `--output-bits` the tool behaves exactly as before (8 bit, byte-identical output, also for FL2K); only for `smisdr_format: 10`, `12` and `14` the player adds `--output-bits 10|12|14`. All three program modes (COHI-Player, COHI-Stream, COHI-Player+Stream) are supported; on Windows only COHI-Player.
+
+Which rate is possible depends on the recording: the highest signal frequency (centre frequency + sample rate / 2) must lie below 95 % of the Nyquist frequency of the output rate, i.e. below approx. 2.4 MHz at 5 MSps, 4.75 MHz at 10 MSps and 5.9 MHz at 12.5 MSps. Longwave and mediumwave recordings need only 5 MSps. If the recording does not fit the configured rate, an error is shown; `smisdr_sample_rate: auto` chooses the rate automatically.
+
+**Hardware with a fixed configuration:** if the target hardware is already set to its rate and width and has no (or no needed) control port, set `smisdr_control_port: 0`. The player then starts without touching port 5000 - no width/rate commands are sent and the control port is not tested at start. Because nothing can be set on the device any more, `smisdr_sample_rate` must then be given explicitly (not `auto`) and, together with `smisdr_format`, has to match the hardware; recordings that do not fit the fixed rate are reported as an error.
+
+**Sample formats and DAC width:**
+
+| `smisdr_format` | Command `width` | Data on the data port |
+|---|---|---|
+| `8` | 8 | int8, ±127 (optionally unsigned with `smisdr_offset: true`) |
+| `816` | 16 | int16 little endian, values in the 8 bit range (±127) |
+| `10` / `12` / `14` | 16 | int16 little endian, full scale ±511 / ±2047 / ±8191 |
+
+With `10`, `12` and `14`, `cohi_native_upconverter --output-bits N` scales the already existing mixer result to the larger full scale. At the same signal level the waveform is therefore identical to the 8 bit output (the 8 bit output equals the N bit output shifted right), only the quantisation is finer. The debug windows always receive an 8 bit copy.
+
+Notes on the wide formats:
+
+- **Data rate:** two bytes per sample (also for `816`), i.e. 10 / 20 / 25 MByte/s (80 / 160 / 200 Mbit/s) at 5 / 10 / 12.5 MSps. Fast Ethernet (100 Mbit/s) is only sufficient at 5 MSps; at 10 and 12.5 MSps a Gigabit connection is required.
+- **Resolution of the signal:** measurements of the existing DSP chain (interpolation, FIR filter, mixer) with a 1 MHz test carrier at 5 MSps showed an SNR of approx. 59 dB (8 bit), 64 dB (10 bit) and 65 dB (12 and 14 bit) in a 200 kHz band around the carrier, and a spurious-free range of approx. 70 dB. Beyond 10 bit the output quantisation therefore is no longer the limiting factor; the remaining limit comes from the existing DSP chain (most likely the interpolation/filter structure - a finer sine table made no difference in a test). 12 and 14 bit DACs can be driven with their full word width, but the signal does not get 12 or 14 bit of dynamic range from that.
+
+**Current limitation:** the **I/Q in-band signaling** of the smiSDR / parlioSDR gateware (16 bit with in-band signaling, where the digital upconversion is done in the FPGA and only the I/Q baseband is transmitted) is **not implemented yet**. COHI-Player always sends ready-made RF samples (classic mode).
+
+**fl2k_tcp as a “fake” smiSDR/parlioSDR**: While the COHI Player's pure fl2k mode uses the fl2k_file playback process, a remote or local fl2k_tcp process from the osmo-fl2k package can be used as a “fake” smiSDR/parlioSDR for testing purpose. All methods using raw RF samples over TCP/IP.
+
+To do this, set the output hardware to smisdr in the config_sdr.yaml file. 
+
+```bash
+hwconfig: smisdr
+```
+
+For a local fl2k_tcp process, leave the IP address set to localhost (127.0.0.1); otherwise, make changes here:
+
+```bash
+# IP address (or host name) of the smiSDR / parlioSDR:
+smisdr_address: 127.0.0.1
+
+```
+
+An fl2k_tcp process is not normally configured dynamically via port 5000, which is why smisdr_control_port is set to 0. Select a sample rate of 10 MSps and an 8-bit (native) format.
+
+
+```bash
+# TCP ports of the device (data = sample stream, control = width/rate).
+# smisdr_control_port: 0 switches the control port OFF - for target hardware
+# that is already fixed to its rate and width. Then nothing is sent to it,
+# smisdr_sample_rate and smisdr_format must match the hardware, and
+# smisdr_sample_rate must not be "auto".
+smisdr_data_port: 1234
+smisdr_control_port: 0
+
+# Output sample rate in MSps - exactly one of:
+#   5    - 5 MSps (all of LW/MW and the lower part of SW)
+#   10   - 10 MSps (up to approx. 4.7 MHz)
+#   12.5 - 12.5 MSps (needed above approx. 4.7 MHz, e.g. SW bands)
+#   auto - the lowest of these rates at which the recording fits
+#          (not possible without control port)
+smisdr_sample_rate: 10
+
+# Sample format on the data port:
+#   8   - 8 bit native (int8)
+#   816 - 8 bit values in 16 bit words (int16, little endian)
+smisdr_format: 8
+```
+
+Start the fl2k_tcp process and socat before (!) establishing the connection with COHI-Player-Universal
+
+```bash
+socat -u TCP4-LISTEN:1234,reuseaddr TCP4-LISTEN:1235,reuseaddr
+sudo fl2k_tcp -s 10000000 -p 1235
+
+```
 
 ---
 
@@ -345,6 +439,8 @@ The sample rate of the recording must be supported by the output hardware; for S
 | "C++ tool not found" | The C++ tools have not been compiled yet: run `make` in the program directory. |
 | No WAV files are found | File names must end with `_0.wav` (lower case on Linux); check `filename`, `filename2`, … in `config_sdr.yaml`. |
 | Crackling with STEMlab in COHI-Stream | Use `stemlab_live_sample_rate: 1250000` instead of `2500000`. |
+| smiSDR/parlioSDR is not reachable | Check `smisdr_address` and the ports in `config_sdr.yaml` and that the device is running; the control port is tested at program start. |
+| "recording does not fit the smisdr output rate" | Set a higher `smisdr_sample_rate` or `auto` (see 5.5). |
 | STEMlab is not found | Check the network connection and the STEMlab firmware; alternatively enter the IP address in `address`. |
 | A live station stays silent (red status) | The stream address may have changed – check the URL in the station list. |
 | Standard buttons (Yes/No) remain English with `language: de` | Install `qttranslations5-l10n`. |

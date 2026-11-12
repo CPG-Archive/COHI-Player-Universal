@@ -57,6 +57,14 @@ def compute_stemlab_live_hint(new_hwconfig, new_program_variant, current):
     return None
 
 
+def compute_smisdr_hint(new_hwconfig):
+    if new_hwconfig == "smisdr":
+        return tr("hwconfig: smisdr - please check smisdr_address, the ports and "
+                  "smisdr_sample_rate in config_sdr.yaml - this tool does NOT set "
+                  "these values.")
+    return None
+
+
 def apply_changes(original_text, selections):
     new_text = original_text
     not_found = []
@@ -232,7 +240,9 @@ if _PYQT5_AVAILABLE:
             stemlab_hint = compute_stemlab_live_hint(
                 self.selections["hwconfig"], self.selections["program_variant"], self.current)
 
-            hints = [h for h in (fl2k_hint, stemlab_hint) if h]
+            smisdr_hint = compute_smisdr_hint(self.selections["hwconfig"])
+
+            hints = [h for h in (fl2k_hint, stemlab_hint, smisdr_hint) if h]
             if hints:
                 self.hint_label.setText("\n\n".join(hints))
                 self.hint_label.setVisible(True)
@@ -258,6 +268,9 @@ if _PYQT5_AVAILABLE:
             message = tr("The following changes will be saved:") + f"\n\n{summary}"
             if stemlab_hint:
                 message += "\n\n" + tr("Note:") + f"\n{stemlab_hint}"
+            smisdr_hint = compute_smisdr_hint(self.selections["hwconfig"])
+            if smisdr_hint:
+                message += "\n\n" + tr("Note:") + f"\n{smisdr_hint}"
             message += "\n\n" + tr("Save now?")
 
             reply = QMessageBox.question(
