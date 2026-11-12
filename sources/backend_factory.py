@@ -36,7 +36,9 @@ def create_backend(config):
             backend = Fl2kCppBackend(fl2k_tool_path=config.fl2k_tool_path,
                                       upconverter_tool_path=config.fl2k_cpp_upconverter_path,
                                       live_enabled=config.live_enabled,
-                                      live_stations_file=config.live_stations_file)
+                                      live_stations_file=config.live_stations_file,
+                                      live_control_port=config.live_control_port,
+                                      live_sferics_port=config.live_sferics_port)
         else:
             from fl2k_backend import Fl2kBackend
             backend = Fl2kBackend(fl2k_tool_path=config.fl2k_tool_path,
@@ -46,7 +48,9 @@ def create_backend(config):
         backend = StemlabBackend(live_enabled=config.live_enabled,
                                   program_variant=config.program_variant,
                                   live_stations_file=config.live_stations_file,
-                                  live_upconverter_tool_path=config.stemlab_live_upconverter_path)
+                                  live_upconverter_tool_path=config.stemlab_live_upconverter_path,
+                                  live_control_port=config.live_control_port,
+                                  live_sferics_port=config.live_sferics_port)
     elif config.hwconfig == "smisdr":
         from smisdr_backend import SmisdrBackend
         backend = SmisdrBackend(address=config.smisdr_address,
@@ -57,7 +61,9 @@ def create_backend(config):
                                  offset_binary=config.smisdr_offset,
                                  upconverter_tool_path=config.fl2k_cpp_upconverter_path,
                                  live_enabled=config.live_enabled,
-                                 live_stations_file=config.live_stations_file)
+                                 live_stations_file=config.live_stations_file,
+                                 live_control_port=config.live_control_port,
+                                 live_sferics_port=config.live_sferics_port)
     else:
         raise ValueError(tr("unknown hwconfig '{value}' in config_sdr.yaml (known: {known})").format(
             value=config.hwconfig, known=", ".join(KNOWN_HWCONFIGS)))

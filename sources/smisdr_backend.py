@@ -128,9 +128,11 @@ class SmisdrBackend(Fl2kCppBackend):
                  control_port=DEFAULT_CONTROL_PORT, rate_setting=SMISDR_RATE_AUTO,
                  sample_format=SMISDR_FORMAT_8, offset_binary=False,
                  upconverter_tool_path=None, live_enabled=False,
-                 live_stations_file=None, parent=None):
+                 live_stations_file=None, live_control_port=0, live_sferics_port=0, parent=None):
         super().__init__(fl2k_tool_path=None, upconverter_tool_path=upconverter_tool_path,
                          live_enabled=live_enabled, live_stations_file=live_stations_file,
+                         live_control_port=live_control_port,
+                         live_sferics_port=live_sferics_port,
                          parent=parent)
         self.address = address or DEFAULT_ADDRESS
         self.data_port = int(data_port)

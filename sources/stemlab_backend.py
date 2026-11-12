@@ -162,8 +162,11 @@ class StemlabBackend(DeviceBackend):
     default_gain = 1.0
 
     def __init__(self, parent=None, live_enabled=False, program_variant="COHI-Player",
-                 live_stations_file=None, live_upconverter_tool_path=None):
+                 live_stations_file=None, live_upconverter_tool_path=None,
+                 live_control_port=0, live_sferics_port=0):
         super().__init__(parent)
+        self.live_control_port = int(live_control_port or 0)
+        self.live_sferics_port = int(live_sferics_port or 0)
         self.host_address = ""
         self.sample_rates = {}
         self.freq_correction_ppm = 0
@@ -504,6 +507,10 @@ class StemlabBackend(DeviceBackend):
         for station in stations:
             command += ["--live-channel",
                         f"{station.udp_port}:{int(station.frequency_hz)}:{live_streams.LIVE_AUDIO_RATE}"]
+        if self.live_control_port > 0:
+            command += ["--live-control-port", str(self.live_control_port)]
+        if self.live_sferics_port > 0:
+            command += ["--live-sferics-port", str(self.live_sferics_port)]
         if not self._upconverter_binary_available():
             logger.error("COHI-Stream (STEMlab): cohi_stemlab_live_upconverter not found: %s",
                          self.live_upconverter_tool_path)

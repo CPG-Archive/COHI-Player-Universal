@@ -272,6 +272,8 @@ In COHI-Player+Stream the LO frequency and sample rate are taken from the WAV re
 | Key | Meaning |
 |---|---|
 | `live_stations_file` | Station list for COHI-Stream, see 5.4 |
+| `live_control_port` | UDP port (default `8888`, `0` = off) for remote control of the field strength of each live station, see 5.6 |
+| `live_sferics_port` | UDP port (default `8889`, `0` = off) for the sferics / lightning simulation, see 5.6 |
 | `debug_spectrum_window`, `debug_timedomain_window` | `true` opens additional windows with spectrum/waterfall and waveform of the output signal. Only with `display_variant: 2`; requires `pyqtgraph` |
 
 The debug option is only working at Raspberry Pi OS / Linux.
@@ -386,6 +388,30 @@ socat -u TCP4-LISTEN:1234,reuseaddr TCP4-LISTEN:1235,reuseaddr
 sudo fl2k_tcp -s 10000000 -p 1235
 
 ```
+
+### 5.6 Remote control of the station field strength (AMWaveSynth protocol)
+
+In COHI-Stream and COHI-Player+Stream the field strength of every live station can be changed in real time over the network, using the same protocol as [AMWaveSynth](https://github.com/radiolab81/AMWaveSynthPropagationSimulator). This allows, e.g., the AMWaveSynthPropagationSimulator to simulate band openings and closings around sunrise/sunset.
+
+- The C++ upconverter listens on the UDP port `live_control_port` (default `8888`, all network interfaces; `0` switches it off).
+- One text datagram per command: `FREQ_HZ:GAIN`, e.g. `603000:0.35`.
+- The station is identified by its carrier frequency in Hz (tolerance < 1 Hz, as in the station list; `603.0 kHz` = `603000`). Frequencies that match no station are ignored.
+- `GAIN` scales carrier and modulation of the station together: `1.0` = unchanged (start value), `0` = station silent, negative values are treated as `0`.
+- Works with `stemlab`, `fl2k` (upconverter `cpp`) and `smisdr`.
+
+Test from a shell:
+
+```bash
+echo -n "603000:0.3" | nc -u -w0 127.0.0.1 8888
+```
+
+**Sferics / lightning simulation** (`live_sferics_port`, default `8889`, `0` = off): one datagram `AMPLITUDE:DURATION_MS` per lightning, e.g. `800:12.5`. A noise burst with an exponentially decaying envelope (falling to 1 % after `DURATION_MS`) is added to the RF signal. `AMPLITUDE` is relative to a carrier with gain 1.0 (`AMPLITUDE/128` = peak noise level), as in AMWaveSynth; very high values are clipped by the DAC width. Active only while live stations are running. With STEMlab the noise is generated as complex noise inside the transmitted band, so the same value is not exactly the same level as with FL2K / smiSDR - adjust the amplitude by ear.
+
+```bash
+echo -n "800:12.5" | nc -u -w0 127.0.0.1 8889
+```
+
+Note: the values are held in the running upconverter process only. It is restarted when the station list is changed (and in COHI-Player+Stream when the recording / sample rate changes); the gains then return to `1.0` until the next command, so the simulator should repeat its values periodically. Recompile the tools with `make` after updating.
 
 ---
 

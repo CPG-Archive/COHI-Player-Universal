@@ -23,6 +23,9 @@ DEFAULT_PROGRAM_VARIANT = "COHI-Player"
 VALID_DISPLAY_VARIANTS = (1, 2)
 DEFAULT_DISPLAY_VARIANT = 1
 
+DEFAULT_LIVE_CONTROL_PORT = 8888
+DEFAULT_LIVE_SFERICS_PORT = 8889
+
 
 class ConfigError(Exception):
     pass
@@ -58,6 +61,8 @@ class PlayerConfig:
         self.debug_timedomain_window = False
         self.live_enabled = False
         self.live_stations_file = None
+        self.live_control_port = DEFAULT_LIVE_CONTROL_PORT
+        self.live_sferics_port = DEFAULT_LIVE_SFERICS_PORT
         self.stemlab_live_lo_freq = None
         self.stemlab_live_sample_rate = None
         self.smisdr_address = "127.0.0.1"
@@ -148,6 +153,22 @@ class PlayerConfig:
         self.stemlab_live_upconverter_path = self._raw_config.get("stemlab_live_upconverter_path")
         self.live_enabled = self.program_variant in ("COHI-Stream", "COHI-Player+Stream")
         self.live_stations_file = self._raw_config.get("live_stations_file")
+        try:
+            self.live_control_port = int(self._raw_config.get(
+                "live_control_port", DEFAULT_LIVE_CONTROL_PORT))
+            if not 0 <= self.live_control_port <= 65535:
+                raise ValueError("port out of range 0..65535")
+        except (TypeError, ValueError) as exc:
+            raise ConfigError(tr("invalid value for {key} in {file}: {error}").format(
+                key="live_control_port", file=self.CONFIG_FILE, error=exc)) from exc
+        try:
+            self.live_sferics_port = int(self._raw_config.get(
+                "live_sferics_port", DEFAULT_LIVE_SFERICS_PORT))
+            if not 0 <= self.live_sferics_port <= 65535:
+                raise ValueError("port out of range 0..65535")
+        except (TypeError, ValueError) as exc:
+            raise ConfigError(tr("invalid value for {key} in {file}: {error}").format(
+                key="live_sferics_port", file=self.CONFIG_FILE, error=exc)) from exc
 
         self.stemlab_live_lo_freq = self._raw_config.get("stemlab_live_lo_freq")
         self.stemlab_live_sample_rate = self._raw_config.get("stemlab_live_sample_rate")
