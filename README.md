@@ -90,6 +90,12 @@ What you get:
 |---|---|
 | ![Map](www/propagation_south_germany.png) | ![Netherlands](www/propagation_netherlands.png) |
 
+**Direction-finder scope:** the [DFscope plugin](https://github.com/radiolab81/AMWaveSynthPropagationSimulator/tree/main/plugins/DFscope) of the simulator turns the receiver into a rotating loop antenna (figure-eight pattern, shown around the receiver on the map). The field strength of each station is weighted by its direction, so the stations nearly in line with the lobes get loud, while a station in the null fades away. In the first picture the lobes point towards Groningen (1332 kHz) and Hannover (711 kHz), which dominate the spectrum; in the second the loop has been turned towards Enschede, and Radio Twente Gold (1089 kHz) takes over while 711 and 1332 kHz almost disappear. Just like with a real loop antenna on a vintage radio.
+
+| Loop towards Groningen / Hannover | Loop turned towards Enschede |
+|---|---|
+| ![DF scope 1](www/propagation_dfscope_1.png) | ![DF scope 2](www/propagation_dfscope_2.png) |
+
 **Setup in short**
 
 1. Set `program_variant: COHI-Stream` (or `COHI-Player+Stream`), keep `live_control_port: 8888` and `live_sferics_port: 8889` in `config_sdr.yaml`, start COHI-Player.
