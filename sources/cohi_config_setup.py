@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 ####################################################
 # COHI-Player-Universal
-# V1.2.0, 12.11.2026
+# V1.0.0, 24.10.2026
 # Author: Claus Peter Gallenmiller, cpg-radio@gmx.de
 ####################################################
 
