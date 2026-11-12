@@ -1,6 +1,6 @@
 ####################################################
 # COHI-Player-Universal
-# V1.0.0, 24.10.2026
+# V1.2.0, 12.11.2026
 # Author: Claus Peter Gallenmiller, cpg-radio@gmx.de
 ####################################################
 
@@ -44,7 +44,6 @@ TEXTS = {
     "no WAV files found, program will exit": "keine WAV-Dateien gefunden, Programm wird beendet",
     "Load station list": "Senderliste laden",
     "Save station list": "Senderliste speichern",
-    "CSV files (*.csv);;All files (*)": "CSV-Dateien (*.csv);;Alle Dateien (*)",
     "CSV files (*.csv)": "CSV-Dateien (*.csv)",
     "No valid stations found in {file}.": "In {file} wurden keine gültigen Sender gefunden.",
     "Saving failed: {error}": "Speichern fehlgeschlagen: {error}",
@@ -320,8 +319,8 @@ TEXTS = {
     "At least one track is required (see 'Add Track...')":
         "Mindestens ein Titel ist erforderlich (siehe 'Titel hinzufügen ...')",
     "Frequency must be a valid number (e.g. 576.0)": "Die Frequenz muss eine gültige Zahl sein (z. B. 576.0)",
-    "File does not start with #EXTM3U - not a valid combined COHI-Coder playlist format (see cohi_coder_playlist.py)":
-        "Datei beginnt nicht mit #EXTM3U - kein gültiges kombiniertes COHI-Coder-Playlistformat (siehe cohi_coder_playlist.py)",
+    "File does not start with #EXTM3U - not a valid extended M3U playlist (see m3u_playlist.py)":
+        "Datei beginnt nicht mit #EXTM3U - keine gültige erweiterte M3U-Playlist (siehe m3u_playlist.py)",
     "invalid carrier frequency": "ungültige Trägerfrequenz",
     "no tracks": "keine Titel",
     "all files missing": "alle Dateien fehlen",
@@ -336,4 +335,36 @@ TEXTS = {
         "Zeile {line}: #EXTGRP-Frequenz '{value}' ist keine Zahl",
     "Line {line}: file name '{name}' without a preceding #PLAYLIST":
         "Zeile {line}: Dateiname '{name}' ohne vorangehendes #PLAYLIST",
+    "Station lists (*.csv *.m3u *.m3u8);;CSV files (*.csv);;M3U playlists (*.m3u *.m3u8);;All files (*)":
+        "Senderlisten (*.csv *.m3u *.m3u8);;CSV-Dateien (*.csv);;M3U-Playlists (*.m3u *.m3u8);;Alle Dateien (*)",
+    "LO frequency/sample rate of this list take effect after a restart":
+        "LO-Frequenz/Samplerate dieser Liste wirken erst nach einem Neustart",
+    "This station has {count} entries from an M3U list (first one shown). Keep the URL unchanged to keep the playlist; a different URL replaces it.":
+        "Dieser Sender hat {count} Einträge aus einer M3U-Liste (der erste ist angezeigt). URL unverändert lassen, um die Playlist zu behalten; eine andere URL ersetzt sie.",
+    'smiSDR / parlioSDR (Raspberry SMI or ESP32-P4 via network, 5 / 12.5 MSps)':
+        'smiSDR / parlioSDR (Raspberry SMI oder ESP32-P4 über das Netzwerk, 5 / 12,5 MS/s)',
+    'NOTE: hwconfig: smisdr - please check smisdr_address, the ports and smisdr_sample_rate in {file} - this tool does NOT set these values.':
+        'HINWEIS: hwconfig: smisdr - bitte smisdr_address, die Ports und smisdr_sample_rate in {file} prüfen - dieses Programm setzt diese Werte NICHT.',
+    'hwconfig: smisdr - please check smisdr_address, the ports and smisdr_sample_rate in config_sdr.yaml - this tool does NOT set these values.':
+        'hwconfig: smisdr - bitte smisdr_address, die Ports und smisdr_sample_rate in config_sdr.yaml prüfen - dieses Programm setzt diese Werte NICHT.',
+    'smiSDR/parlioSDR not reachable at {address}:{port} ({error})':
+        'smiSDR/parlioSDR nicht erreichbar unter {address}:{port} ({error})',
+    'smiSDR/parlioSDR control port {address}:{port} did not accept the width/rate command':
+        'Steuerport {address}:{port} der smiSDR/parlioSDR hat den Befehl width/rate nicht angenommen',
+    'smiSDR/parlioSDR data port {address}:{port} not reachable ({error})':
+        'Datenport {address}:{port} der smiSDR/parlioSDR nicht erreichbar ({error})',
+    'recording (up to {edge} Hz) does not fit the smisdr output rate ({setting}) - use a higher smisdr_sample_rate':
+        'Aufnahme (bis {edge} Hz) passt nicht zur smisdr-Ausgaberate ({setting}) - bitte eine höhere smisdr_sample_rate verwenden',
+    '{key} in {file}: without a control port (smisdr_control_port: 0) the rate cannot be set on the device - please give 5, 10 or 12.5 explicitly':
+        '{key} in {file}: ohne Steuerport (smisdr_control_port: 0) kann die Rate am Gerät nicht gesetzt werden - bitte 5, 10 oder 12.5 explizit angeben',
+    'cohi_native_upconverter could not be started: {error}':
+        'cohi_native_upconverter konnte nicht gestartet werden: {error}',
+    'smisdr output started (IF {if_hz} Hz, {rate} MSps, {fmt})':
+        'smisdr-Ausgabe gestartet (ZF {if_hz} Hz, {rate} MSps, {fmt})',
+    'smisdr connection lost: {error}':
+        'smisdr-Verbindung verloren: {error}',
+    'stopping cohi_native_upconverter ...':
+        'beende cohi_native_upconverter ...',
+    'smisdr output stopped':
+        'smisdr-Ausgabe beendet',
 }

@@ -1,6 +1,6 @@
 ####################################################
 # COHI-Player-Universal
-# V1.0.0, 24.10.2026
+# V1.2.0, 12.11.2026
 # Author: Claus Peter Gallenmiller, cpg-radio@gmx.de
 ####################################################
 
@@ -44,7 +44,7 @@ class SystemWorker(QObject):
             self.errorOccurred.emit(tr("device not found / not reachable"))
             return
 
-        if address != self.config.host_address:
+        if address != self.config.host_address and self.config.hwconfig != "smisdr":
             self.config.save_host_address(address)
 
         self.deviceReady.emit(address)

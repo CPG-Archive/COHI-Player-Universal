@@ -1,10 +1,11 @@
 ####################################################
 # COHI-Player-Universal
-# V1.0.0, 24.10.2026
+# V1.2.0, 12.11.2026
 # Author: Claus Peter Gallenmiller, cpg-radio@gmx.de
 ####################################################
 
 import logging
+import math
 import os
 import re
 import shutil
@@ -27,7 +28,8 @@ OUTPUT_SHIFT = 6
 
 FIR_TAPS = 15
 
-LIVE_GAIN_SHIFT = 2
+DEFAULT_LIVE_GAIN_SHIFT = 1.5
+LIVE_GAIN_SHIFT = DEFAULT_LIVE_GAIN_SHIFT
 
 STARVED_FRACTION_THRESHOLD = 0.8
 STARVED_SAMPLES_PER_WINDOW_APPROX = 220500
@@ -39,12 +41,25 @@ _AUSLASTUNG_LINE_RE = re.compile(
     r"(?:Live-Kanaele )?Ueberlauf gesamt:")
 
 
+def split_live_gain_shift(value):
+    value = max(0.0, float(value))
+    whole = int(math.floor(value + 1e-9))
+    fraction = value - whole
+    trim = 1.0 if fraction < 1e-6 else 2.0 ** (-fraction)
+    return whole, trim
+
+
 class Fl2kCppBackend(Fl2kBackend):
+    upconverter_extra_args = ()
+
     default_gain = 0.4
 
     def __init__(self, fl2k_tool_path=None, upconverter_tool_path=None,
-                 live_enabled=False, live_stations_file=None, parent=None):
+                 live_enabled=False, live_stations_file=None,
+                 live_gain_shift=DEFAULT_LIVE_GAIN_SHIFT, parent=None):
         super().__init__(fl2k_tool_path=fl2k_tool_path, ffmpeg_tool_path=None, parent=parent)
+        self.live_gain_shift, self.live_gain_trim = split_live_gain_shift(live_gain_shift)
+        self._configured_live_gain_shift = max(0.0, float(live_gain_shift))
         self.upconverter_tool_path = upconverter_tool_path or DEFAULT_UPCONVERTER_PATH
         self._upconverter_process = None
         self._upconverter_health_stop_event = None
@@ -203,6 +218,21 @@ class Fl2kCppBackend(Fl2kBackend):
                 return
         threading.Thread(target=_run, name="upconverter-health-check", daemon=True).start()
 
+    def _effective_live_gain(self):
+        depth = live_streams.station_list_mod_depth(self._live_stations)
+        if depth is None:
+            return self.live_gain_shift, self.live_gain_trim
+        wanted = self._configured_live_gain_shift - math.log2(
+            depth / live_streams.REFERENCE_MODULATION_DEPTH)
+        shift_value = min(6.0, max(0.0, wanted))
+        if abs(shift_value - wanted) > 1e-9:
+            logger.warning("fl2k (cpp): modulation depth %.2f from the station list is outside "
+                           "the adjustable range - level limited (fl2k_live_gain_shift %.2f)",
+                           depth, shift_value)
+        logger.info("fl2k (cpp): modulation depth %.2f from the station list -> "
+                    "fl2k_live_gain_shift %.2f", depth, shift_value)
+        return split_live_gain_shift(shift_value)
+
     def _spawn_upconverter_process(self, sample_rate, center_freq, target_rate):
         command = [
             self.upconverter_tool_path,
@@ -212,9 +242,13 @@ class Fl2kCppBackend(Fl2kBackend):
             "--output-shift", str(OUTPUT_SHIFT),
             "--fir-taps", str(FIR_TAPS),
         ]
+        command += list(self.upconverter_extra_args)
         if self._live_stations:
             command += live_streams.build_live_channel_args(self._live_stations)
-            command += ["--live-gain-shift", str(LIVE_GAIN_SHIFT)]
+            gain_shift, gain_trim = self._effective_live_gain()
+            command += ["--live-gain-shift", str(gain_shift)]
+            if gain_trim < 1.0:
+                command += ["--live-gain-trim", f"{gain_trim:.6f}"]
         if self.debug_udp_port:
             command += ["--debug-udp-port", str(self.debug_udp_port)]
         logger.info("fl2k (cpp): cohi_native_upconverter command: %s", " ".join(command))

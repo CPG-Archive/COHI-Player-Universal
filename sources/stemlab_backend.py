@@ -1,6 +1,6 @@
 ####################################################
 # COHI-Player-Universal
-# V1.0.0, 24.10.2026
+# V1.2.0, 12.11.2026
 # Author: Claus Peter Gallenmiller, cpg-radio@gmx.de
 ####################################################
 
@@ -504,6 +504,10 @@ class StemlabBackend(DeviceBackend):
         for station in stations:
             command += ["--live-channel",
                         f"{station.udp_port}:{int(station.frequency_hz)}:{live_streams.LIVE_AUDIO_RATE}"]
+        mod_depth = live_streams.station_list_mod_depth(stations)
+        if mod_depth is not None:
+            command += ["--modulation-depth", f"{mod_depth:.4f}"]
+            logger.info("COHI-Stream (STEMlab): modulation depth %.2f from the station list", mod_depth)
         if not self._upconverter_binary_available():
             logger.error("COHI-Stream (STEMlab): cohi_stemlab_live_upconverter not found: %s",
                          self.live_upconverter_tool_path)

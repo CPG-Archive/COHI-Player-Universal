@@ -1,6 +1,6 @@
 ####################################################
 # COHI-Player-Universal
-# V1.0.0, 24.10.2026
+# V1.2.0, 12.11.2026
 # Author: Claus Peter Gallenmiller, cpg-radio@gmx.de
 ####################################################
 
@@ -31,6 +31,11 @@ class StationEditDialog(QDialog):
         layout.addRow(tr("Bandwidth (kHz):"), self.bw_edit)
         layout.addRow(tr("Station name:"), self.name_edit)
         layout.addRow("URL:", self.url_edit)
+        if station is not None and station.tracks and len(station.tracks) > 1:
+            self.url_edit.setToolTip(tr(
+                "This station has {count} entries from an M3U list (first one shown). "
+                "Keep the URL unchanged to keep the playlist; a different URL replaces it."
+            ).format(count=len(station.tracks)))
 
         button_row = QHBoxLayout()
         btn_add = QPushButton(tr("Add"))

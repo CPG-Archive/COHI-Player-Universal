@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 ####################################################
 # COHI-Player-Universal
-# V1.0.0, 24.10.2026
+# V1.2.0, 12.11.2026
 # Author: Claus Peter Gallenmiller, cpg-radio@gmx.de
 ####################################################
 
@@ -54,6 +54,14 @@ def compute_stemlab_live_hint(new_hwconfig, new_program_variant, current):
                       "stemlab_live_lo_freq and stemlab_live_sample_rate in config_sdr.yaml - "
                       "this tool does NOT set these values (they depend on the actual station "
                       "list). Please add them manually afterwards.")
+    return None
+
+
+def compute_smisdr_hint(new_hwconfig):
+    if new_hwconfig == "smisdr":
+        return tr("hwconfig: smisdr - please check smisdr_address, the ports and "
+                  "smisdr_sample_rate in config_sdr.yaml - this tool does NOT set "
+                  "these values.")
     return None
 
 
@@ -232,7 +240,9 @@ if _PYQT5_AVAILABLE:
             stemlab_hint = compute_stemlab_live_hint(
                 self.selections["hwconfig"], self.selections["program_variant"], self.current)
 
-            hints = [h for h in (fl2k_hint, stemlab_hint) if h]
+            smisdr_hint = compute_smisdr_hint(self.selections["hwconfig"])
+
+            hints = [h for h in (fl2k_hint, stemlab_hint, smisdr_hint) if h]
             if hints:
                 self.hint_label.setText("\n\n".join(hints))
                 self.hint_label.setVisible(True)
@@ -258,6 +268,9 @@ if _PYQT5_AVAILABLE:
             message = tr("The following changes will be saved:") + f"\n\n{summary}"
             if stemlab_hint:
                 message += "\n\n" + tr("Note:") + f"\n{stemlab_hint}"
+            smisdr_hint = compute_smisdr_hint(self.selections["hwconfig"])
+            if smisdr_hint:
+                message += "\n\n" + tr("Note:") + f"\n{smisdr_hint}"
             message += "\n\n" + tr("Save now?")
 
             reply = QMessageBox.question(

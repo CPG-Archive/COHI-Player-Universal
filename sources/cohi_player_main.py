@@ -1,6 +1,6 @@
 ####################################################
 # COHI-Player-Universal
-# V1.0.1, 31.10.2026
+# V1.2.0, 12.11.2026
 # Author: Claus Peter Gallenmiller, cpg-radio@gmx.de
 ####################################################
 
@@ -82,11 +82,6 @@ def setup_logging(log_mode):
 
 
 def _log_uncaught_exception(exc_type, exc_value, exc_traceback):
-    """sys.excepthook: schreibt jede unbehandelte Ausnahme (auch aus Qt-Slots,
-    die PyQt5 an sys.excepthook weiterreicht) samt Traceback ins Log - vorher
-    erschien sie nur auf der Konsole, nie in system_log.log (echter, gemeldeter
-    Fehler: Startabsturz unter Windows war im Logfile nicht nachvollziehbar).
-    KeyboardInterrupt bleibt unveraendert."""
     if issubclass(exc_type, KeyboardInterrupt):
         sys.__excepthook__(exc_type, exc_value, exc_traceback)
         return
@@ -171,6 +166,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             try:
                 self._live_stations = live_streams.load_station_list(startup_path)
                 self._current_stations_path = startup_path
+                self._apply_station_list_params(self._live_stations, startup=True)
             except OSError as exc:
                 logger.warning("COHI-Stream: station list could not be loaded at startup: %s", exc)
         self._refresh_stream_table()
@@ -182,6 +178,44 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.pushButton_edit.clicked.connect(self._on_edit_station_clicked)
         self.table_streams.cellDoubleClicked.connect(
             lambda row, _column: self._on_edit_station_clicked())
+
+    def _apply_station_list_params(self, stations, startup):
+        params = getattr(stations, "params", None)
+        if params is None:
+            return
+        for warning in params.warnings:
+            logger.warning("station list: %s", warning)
+        if self.config.hwconfig != "stemlab" or self.config.program_variant != "COHI-Stream":
+            if params.lofreq_khz is not None or params.samplerate_khz is not None:
+                logger.info("station list: LOFREQ/SAMPLERATE are only used for hwconfig: stemlab "
+                            "with program_variant: COHI-Stream - ignored")
+            return
+        from stemlab_backend import StemlabBackend
+        valid_rates = StemlabBackend.identify()["rates"]
+        new_lo = params.lofreq_hz
+        new_rate = params.samplerate_hz
+        if new_rate is not None and int(round(new_rate)) not in valid_rates:
+            logger.warning("station list: SAMPLERATE %s kHz is not supported by the STEMlab "
+                           "(supported: %s Hz) - value from config_sdr.yaml is used",
+                           params.samplerate_khz, sorted(valid_rates))
+            new_rate = None
+        if startup:
+            if new_lo is not None:
+                self.config.stemlab_live_lo_freq = new_lo
+            if new_rate is not None:
+                self.config.stemlab_live_sample_rate = float(int(round(new_rate)))
+            if new_lo is not None or new_rate is not None:
+                logger.info("COHI-Stream (STEMlab): LO %s Hz, sample rate %s Hz (station list "
+                            "takes priority over config_sdr.yaml)", self.config.stemlab_live_lo_freq,
+                            self.config.stemlab_live_sample_rate)
+        else:
+            differs = ((new_lo is not None and new_lo != self.config.stemlab_live_lo_freq) or
+                       (new_rate is not None and new_rate != self.config.stemlab_live_sample_rate))
+            if differs:
+                logger.warning("station list: LOFREQ/SAMPLERATE differ from the running connection "
+                               "- they take effect after a restart")
+                self._on_status_message(
+                    tr("LO frequency/sample rate of this list take effect after a restart"))
 
     def _init_combined(self):
         self.title_live.setText("COHI-Stream")
@@ -350,7 +384,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
     def _on_load_stations_clicked(self):
         path = self._show_sized_file_dialog(
-            "open", tr("Load station list"), tr("CSV files (*.csv);;All files (*)"))
+            "open", tr("Load station list"),
+            tr("Station lists (*.csv *.m3u *.m3u8);;CSV files (*.csv);;M3U playlists (*.m3u *.m3u8);;All files (*)"))
         if not path:
             return
         loaded = live_streams.load_station_list(path)
@@ -361,19 +396,25 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self._live_stations = loaded
         self._current_stations_path = path
         self._stations_dirty = False
+        self._apply_station_list_params(loaded, startup=False)
         live_streams.write_last_stations_path(path)
         self._refresh_stream_table()
         self._update_playing_live_streams_label()
         self._notify_live_stations_changed()
 
     def _on_save_stations_clicked(self):
+        csv_filter = tr("CSV files (*.csv)")
+        m3u_filter = tr("M3U playlists (*.m3u)")
+        current_is_m3u = bool(self._current_stations_path) and \
+            live_streams.is_m3u_station_list(self._current_stations_path)
         path = self._show_sized_file_dialog(
-            "save", tr("Save station list"), tr("CSV files (*.csv);;All files (*)"),
-            selected_filter=tr("CSV files (*.csv)"))
+            "save", tr("Save station list"),
+            f"{m3u_filter};;{csv_filter}" if current_is_m3u else f"{csv_filter};;{m3u_filter}",
+            selected_filter=m3u_filter if current_is_m3u else csv_filter)
         if not path:
             return
-        if not path.lower().endswith(".csv"):
-            path += ".csv"
+        if not path.lower().endswith((".csv", ".m3u", ".m3u8")):
+            path += ".m3u" if current_is_m3u else ".csv"
         try:
             live_streams.save_station_list(self._live_stations, path)
         except OSError as exc:
@@ -404,7 +445,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 QMessageBox.information(self, tr("Edit station"),
                                          tr("Please select a row in the table first."))
             else:
-                self._live_stations[row] = dialog.get_station()
+                self._live_stations[row] = live_streams.inherit_playlist(dialog.get_station(), station)
                 self._stations_dirty = True
                 self._refresh_stream_table()
                 self._notify_live_stations_changed()
@@ -519,7 +560,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self._debug_timedomain_window_instance = None
         self._debug_data_feed_initialized = False
 
-        if (self.config.hwconfig == "fl2k"
+        if (self.config.hwconfig in ("fl2k", "smisdr")
                 and (self.config.debug_spectrum_window or self.config.debug_timedomain_window)
                 and not hasattr(self.system_worker.backend, "set_debug_udp_port")):
             logger.warning(
@@ -545,7 +586,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         from debug_windows import DebugDataBridge
         self._debug_bridge = DebugDataBridge()
 
-        if self.config.hwconfig == "fl2k":
+        if self.config.hwconfig in ("fl2k", "smisdr"):
             from debug_windows import _make_debug_udp_socket_free_port
             self._debug_udp_port = _make_debug_udp_socket_free_port()
             self.system_worker.backend.set_debug_udp_port(self._debug_udp_port)
@@ -569,7 +610,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             sample_rate = float(params[0]) if params else 2_500_000.0
             backend.set_debug_tap(
                 lambda iq, lo_freq_hz: self._debug_bridge.dataReady.emit(iq, sample_rate, lo_freq_hz))
-        elif self.config.hwconfig == "fl2k" and self._debug_udp_port:
+        elif self.config.hwconfig in ("fl2k", "smisdr") and self._debug_udp_port:
             sample_rate = float(self.system_worker.backend.target_rate or 10_000_000.0)
             self._debug_stop_event = threading.Event()
             threading.Thread(

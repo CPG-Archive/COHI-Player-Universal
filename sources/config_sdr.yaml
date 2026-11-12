@@ -1,6 +1,6 @@
 ####################################################
 # COHI-Player-Universal
-# V1.0.0, 24.10.2026
+# V1.2.0, 12.11.2026
 # Author: Claus Peter Gallenmiller, cpg-radio@gmx.de
 ####################################################
 
@@ -27,6 +27,8 @@ language: en
 # Output hardware:
 #   stemlab - STEMlab 125-14 / Red Pitaya (with the COHI STEMlab firmware)
 #   fl2k    - FL2K USB-to-VGA dongle (osmo-fl2k)
+#   smisdr  - smiSDR / parlioSDR (radiolab81) via TCP/IP, 5 or 12.5 MSps,
+#             see the smiSDR / parlioSDR section below
 hwconfig: fl2k
 
 # Only for hwconfig: stemlab - IP address of the STEMlab.
@@ -44,7 +46,7 @@ filename2: /home/pi/COHIRADIA/WAV
 # true = the shutdown button also shuts down the computer (Raspberry Pi or
 # Windows PC); with STEMlab the STEMlab is always shut down as well.
 # false = only the program is closed.
-shutdown: false
+shutdown: true
 
 # Modulation level. 1.0 = typical value for STEMlab and FL2K alike (the
 # automatic level adjustment takes care of the rest). Only change it for
@@ -72,22 +74,22 @@ log_mode: session
 #   COHI-Player        - replay of WAV band recordings only (default)
 #   COHI-Stream        - internet live streams only
 #   COHI-Player+Stream - both at the same time (recommended: Raspberry Pi 5)
-# The live stream modes require hwconfig: stemlab, or hwconfig: fl2k together
-# with fl2k_upconverter: cpp.
+# The live stream modes require hwconfig: stemlab or smisdr, or hwconfig: fl2k
+# together with fl2k_upconverter: cpp.
 program_variant: COHI-Player
 
 # Display size:
 #   1 - small display, 3.5" (480x320 pixels)
 #   2 - large display, 7" or larger
-display_variant: 1
+display_variant: 2
 
 # Additional debug windows showing the output signal:
 #   debug_spectrum_window   - spectrum and waterfall
 #   debug_timedomain_window - waveform
 # Only effective with display_variant: 2. Requires the Python package
 # pyqtgraph (pip install pyqtgraph --break-system-packages).
-debug_spectrum_window: false
-debug_timedomain_window: false
+debug_spectrum_window: true
+debug_timedomain_window: true
 
 
 # ---------------------------------------------------------------------------
@@ -103,25 +105,102 @@ debug_timedomain_window: false
 #   ffmpeg - via ffmpeg (high CPU load; mainly for Windows)
 fl2k_upconverter: cpp
 
+# Only for fl2k_upconverter: cpp (also used for hwconfig: smisdr) - output level
+# of the COHI-Stream (live) part. Each whole step lowers the level of the live
+# stations by 6 dB: 2 = quiet, 1 = loud, 0 = loudest (+12 dB compared with 2;
+# with many stations at the same time the sum signal can reach full scale and
+# clip, which is audible as distortion and intermodulation). Fractions allow
+# fine adjustment: 1.5 = 3 dB below 1 (value used if the key is omitted),
+# 1.25 = 1.5 dB below 1, 1.75 = 4.5 dB below 1. Fractional values need
+# cohi_native_upconverter compiled from the current source (run "make" again);
+# whole numbers also work with an older binary. Does not affect WAV playback.
+fl2k_live_gain_shift: 1
+
 # Optional paths to fl2k_file and ffmpeg. Without these entries the programs
 # are searched in the PATH (Linux) or in default subdirectories of the program
 # directory (Windows). Example for Windows:
 # fl2k_path: C:\fl2k\fl2k_file.exe
 # ffmpeg_path: C:\ffmpeg\bin\ffmpeg.exe
 
-# Optional path to the C++ tool cohi_native_upconverter. Without this entry it
-# is expected in the program directory.
+# Optional path to the C++ tool cohi_native_upconverter (also used for
+# hwconfig: smisdr). Without this entry it is expected in the program directory.
 # fl2k_cpp_upconverter_path: /home/pi/cohi-player/cohi_native_upconverter
+
+
+# ---------------------------------------------------------------------------
+# smiSDR / parlioSDR (only for hwconfig: smisdr)
+# ---------------------------------------------------------------------------
+
+# The digital upconversion is done by the same C++ tool as for FL2K
+# (cohi_native_upconverter, compile it with "make"); the RF samples are sent
+# to the device via TCP: width/rate commands to the control port, the samples
+# to the data port.
+
+# IP address (or host name) of the smiSDR / parlioSDR:
+smisdr_address: 127.0.0.1
+
+# TCP ports of the device (data = sample stream, control = width/rate).
+# smisdr_control_port: 0 switches the control port OFF - for target hardware
+# that is already fixed to its rate and width. Then nothing is sent to it,
+# smisdr_sample_rate and smisdr_format must match the hardware, and
+# smisdr_sample_rate must not be "auto".
+smisdr_data_port: 1234
+smisdr_control_port: 5000
+
+# Output sample rate in MSps - exactly one of:
+#   5    - 5 MSps (all of LW/MW and the lower part of SW)
+#   10   - 10 MSps (up to approx. 4.7 MHz)
+#   12.5 - 12.5 MSps (needed above approx. 4.7 MHz, e.g. SW bands)
+#   auto - the lowest of these rates at which the recording fits
+#          (not possible without control port)
+smisdr_sample_rate: auto
+
+# Sample format on the data port (the "width" of the DAC bus):
+#   8   - 8 bit native (int8)
+#   816 - 8 bit values in 16 bit words (int16, little endian)
+#   10, 12, 14 - DAC with 10 / 12 / 14 bit, int16 little endian, full scale
+#         +-511 / +-2047 / +-8191 (width 16). cohi_native_upconverter then
+#         quantises finer (--output-bits); at the same signal level the
+#         waveform is identical to the 8 bit output.
+# Please note the data rate: 16 bit words need 2 bytes per sample, i.e. up to
+# 25 MByte/s (200 Mbit/s) at 12.5 MSps - from 10 MSps on Gigabit Ethernet is needed.
+smisdr_format: 8
+
+# Only for smisdr_format: 8 - true = unsigned 8 bit (DC offset +128),
+# false = signed 8 bit (default, as on SMI).
+smisdr_offset: false
 
 
 # ---------------------------------------------------------------------------
 # COHI-Stream (only for program_variant: COHI-Stream or COHI-Player+Stream)
 # ---------------------------------------------------------------------------
 
-# Station list (CSV, semicolon-separated, columns:
-# Frequenz;Bandbreite;Programmname;URL). The list can be loaded, edited and
-# saved in the program; the program remembers the list used last and prefers
-# it to this entry.
+# Station list. The format is chosen by the file extension:
+#  - .csv: semicolon-separated, columns Frequenz;Bandbreite;Programmname;URL,
+#          one URL per station
+#  - .m3u: extended M3U format, also used by COHI-Coder - the stations AND
+#          their playlists (files or web addresses) in ONE file. Per station:
+#            #PLAYLIST:<name>   #EXTGRP:<carrier in kHz>   [#EXTPARAM_BW:<kHz>]
+#            #EXTINF:-1,<artist>-<title>   followed by a file or web address
+#          Optional global header lines (before the first #PLAYLIST). They take
+#          PRIORITY over the values in this file; if one is missing, the value
+#          from this file or the default is used:
+#            #EXTPARAM_BW         bandwidth in kHz (display only in COHI-Stream)
+#            #EXTPARAM_FILEPREFIX text put in front of every entry that is not
+#                                 already a full URL / absolute path
+#            #EXTPARAM_LOFREQ     LO frequency in kHz  } stemlab_live_lo_freq /
+#            #EXTPARAM_SAMPLERATE sample rate in kHz   } stemlab_live_sample_rate
+#                                 (only hwconfig: stemlab + COHI-Stream)
+#            #EXTPARAM_SILENCE    seconds of silence between two titles
+#            #EXTPARAM_MODDEPTH   modulation depth 0..1 (default 0.8); with
+#                                 FL2K / smisdr the live level changes in
+#                                 proportion to MODDEPTH/0.8 (relative to
+#                                 fl2k_live_gain_shift)
+#            (#EXTPARAM_RECLENGTH and #EXTPARAM_OUTPUTFILE are ignored by
+#            COHI-Stream.) A station with several entries is played as an
+#            endless playlist.
+# The list can be loaded, edited and saved in the program; the program
+# remembers the list used last and prefers it to this entry.
 live_stations_file: Web-Streams.csv
 
 # Only for hwconfig: stemlab together with program_variant: COHI-Stream.
