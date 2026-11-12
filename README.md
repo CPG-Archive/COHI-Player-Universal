@@ -391,7 +391,7 @@ sudo fl2k_tcp -s 10000000 -p 1235
 
 ### 5.6 Remote control of the station field strength (AMWaveSynth protocol)
 
-In COHI-Stream and COHI-Player+Stream the field strength of every live station can be changed in real time over the network, using the same protocol as [AMWaveSynth](https://github.com/radiolab81/AMWaveSynthPropagationSimulator). This allows, e.g., the AMWaveSynthPropagationSimulator to simulate band openings and closings around sunrise/sunset.
+In COHI-Stream and COHI-Player+Stream the field strength of every live station can be changed in real time over the network, using the same protocol as [AMWaveSynthPropagationSimulator](https://github.com/radiolab81/AMWaveSynthPropagationSimulator). This allows, e.g., the AMWaveSynthPropagationSimulator to simulate band openings and closings around sunrise/sunset.
 
 - The C++ upconverter listens on the UDP port `live_control_port` (default `8888`, all network interfaces; `0` switches it off).
 - One text datagram per command: `FREQ_HZ:GAIN`, e.g. `603000:0.35`.
