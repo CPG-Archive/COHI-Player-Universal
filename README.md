@@ -23,6 +23,8 @@ The COHI-Player-Universal does not need any manual interaction for loading or st
 | **COHI-Player+Stream** | Both at once: a band recording plus additional live stream carriers |
 
 
+With COHI-Stream and COHI-Player+Stream the band can also be made **alive**: the field strength of every station, and even thunderstorm crackle, can be controlled in real time by a propagation simulator, so that band openings at dusk, fading skywave stations and thunderstorms are heard on the vintage radio (see 2.5).
+
 The three player modes share one program (`cohi_player_main.py`); the mode is selected in `config_sdr.yaml` (`program_variant`). 
 
 The user interface is available in **English** and **German** (`language` in `config_sdr.yaml`).
@@ -66,6 +68,34 @@ Combines both: a band recording plus live stream carriers. On the small 3.5" dis
 | `fl2k` | `native` (Python/NumPy) | ✔ | – | – |
 | `fl2k` | `ffmpeg` | ✔ | – | – |
 | `smisdr` | – (always the compiled C++ tool) | ✔ | ✔ | ✔ |
+
+### 2.5 Realistic propagation: band openings, skywave and thunderstorms
+
+COHI-Stream (and the live stations of COHI-Player+Stream) can be coupled to the **[AMWaveSynthPropagationSimulator](https://github.com/radiolab81/AMWaveSynthPropagationSimulator)**. The simulator knows where each station is transmitted from, where your receiver stands, and calculates for the chosen date and time of day the field strength with ground wave and skywave. It sends the result over the network to COHI-Player, which sets the level of every station accordingly (protocol and settings: 5.6). The simulator can also place thunderstorm cells on the map; they are heard as crackling lightning (sferics) on all stations.
+
+What you get:
+
+- **Daytime:** only the nearby stations are received by ground wave (`GrW`); the band is almost empty.
+- **Dusk and night:** the D layer vanishes, the band opens and many distant stations arrive by skywave (`SkW`). Fast-forwarding through a day lets you hear this like a real evening on the dial.
+- **Receiver location:** the same station list sounds different in southern Germany and in the Netherlands, because different transmitters are near.
+- **Thunderstorms:** a storm cell moving across the map causes crackling bursts, visible as horizontal stripes in the waterfall.
+
+| Receiver in southern Germany, 12:03 UTC | Receiver in southern Germany, 22:46 UTC |
+|---|---|
+| ![Day](www/propagation_day.png) | ![Night](www/propagation_night.png) |
+
+![Thunderstorm cell over Switzerland](www/propagation_storm.png)
+
+| Station map (receiver in southern Germany) | Receiver in the Netherlands |
+|---|---|
+| ![Map](www/propagation_south_germany.png) | ![Netherlands](www/propagation_netherlands.png) |
+
+**Setup in short**
+
+1. Set `program_variant: COHI-Stream` (or `COHI-Player+Stream`), keep `live_control_port: 8888` and `live_sferics_port: 8889` in `config_sdr.yaml`, start COHI-Player.
+2. Start the AMWaveSynthPropagationSimulator and let it send to the IP address of the COHI-Player computer, UDP port 8888 (and 8889 for lightning).
+3. Load the transmitter locations. The example file [`sources/Web-Streams-Locations.csv`](sources/Web-Streams-Locations.csv) fits the example station list `Web-Streams.csv`: it assigns each station a transmitter location, a frequency in kHz and a transmitter power in kW (columns: location, country, frequency, power, programme name). Frequencies must match the station list. The locations are fictitious test transmitter sites for the simulation, not the real locations of these internet streams.
+4. Set the receiver location on the map. That's it - move the time slider or let it run in real time.
 
 ---
 
@@ -307,6 +337,8 @@ Frequenz;Bandbreite;Programmname;URL
 
 An example list with 31 working internet radio stations (many of them with music of the 1920s–1960s) is included as **`Web-Streams.csv`** and is preset in `config_sdr.yaml`. Internet streams change their addresses from time to time – if a station stays silent, check its URL.
 
+A matching location file for the propagation simulator (`Web-Streams-Locations.csv`) is described in 2.5.
+
 The list can be loaded, edited and saved directly in the program (buttons *Load*, *Save*, *Edit*). The program remembers the last list used and loads it again at the next start; `live_stations_file` is only used if no list has been loaded before. Faulty lines are skipped and noted in the log file.
 
 ### 5.5 smiSDR / parlioSDR (and fl2k_tcp)
@@ -391,7 +423,7 @@ sudo fl2k_tcp -s 10000000 -p 1235
 
 ### 5.6 Remote control of the station field strength (AMWaveSynth protocol)
 
-In COHI-Stream and COHI-Player+Stream the field strength of every live station can be changed in real time over the network, using the same protocol as [AMWaveSynthPropagationSimulator](https://github.com/radiolab81/AMWaveSynthPropagationSimulator). This allows, e.g., the AMWaveSynthPropagationSimulator to simulate band openings and closings around sunrise/sunset.
+In COHI-Stream and COHI-Player+Stream the field strength of every live station can be changed in real time over the network, using the same protocol as [AMWaveSynth](https://github.com/radiolab81/AMWaveSynthPropagationSimulator). This allows, e.g., the AMWaveSynthPropagationSimulator to simulate band openings and closings around sunrise/sunset.
 
 - The C++ upconverter listens on the UDP port `live_control_port` (default `8888`, all network interfaces; `0` switches it off).
 - One text datagram per command: `FREQ_HZ:GAIN`, e.g. `603000:0.35`.
