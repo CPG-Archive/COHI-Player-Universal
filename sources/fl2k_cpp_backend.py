@@ -1,7 +1,9 @@
 ####################################################
 # COHI-Player-Universal
-# V1.0.0, 24.10.2026
+# V1.1.1, 11.11.2026
 # Author: Claus Peter Gallenmiller, cpg-radio@gmx.de
+# Modified by radiolab81:
+#   V1.1.1, 11.11.2026: UDP field strength control, sferics / lightning simulation (AMWaveSynth protocol)
 ####################################################
 
 import logging
@@ -46,7 +48,8 @@ class Fl2kCppBackend(Fl2kBackend):
     default_gain = 0.4
 
     def __init__(self, fl2k_tool_path=None, upconverter_tool_path=None,
-                 live_enabled=False, live_stations_file=None, parent=None):
+                 live_enabled=False, live_stations_file=None, live_control_port=0,
+                 live_sferics_port=0, parent=None):
         super().__init__(fl2k_tool_path=fl2k_tool_path, ffmpeg_tool_path=None, parent=parent)
         self.upconverter_tool_path = upconverter_tool_path or DEFAULT_UPCONVERTER_PATH
         self._upconverter_process = None
@@ -55,6 +58,8 @@ class Fl2kCppBackend(Fl2kBackend):
         self.target_rate = None
         self.live_enabled = live_enabled
         self.live_stations_file = live_stations_file
+        self.live_control_port = int(live_control_port or 0)
+        self.live_sferics_port = int(live_sferics_port or 0)
         self._live_stations = []
         self._port_starved_streak = {}
 
@@ -219,6 +224,10 @@ class Fl2kCppBackend(Fl2kBackend):
         if self._live_stations:
             command += live_streams.build_live_channel_args(self._live_stations)
             command += ["--live-gain-shift", str(LIVE_GAIN_SHIFT)]
+            if self.live_control_port > 0:
+                command += ["--live-control-port", str(self.live_control_port)]
+            if self.live_sferics_port > 0:
+                command += ["--live-sferics-port", str(self.live_sferics_port)]
         if self.debug_udp_port:
             command += ["--debug-udp-port", str(self.debug_udp_port)]
         logger.info("fl2k (cpp): cohi_native_upconverter command: %s", " ".join(command))

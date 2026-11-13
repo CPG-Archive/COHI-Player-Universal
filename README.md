@@ -1,6 +1,11 @@
 # COHI-Player-Universal
 
-**Version 1.0.0** · Author: Claus Peter Gallenmiller · License: [GPL-3.0](LICENSE)
+**Version 1.1.1** · License: [GPL-3.0](LICENSE)
+
+Original author: Claus Peter Gallenmiller (v1.0.0, [CPG-Archive/COHI-Player-Universal](https://github.com/CPG-Archive/COHI-Player-Universal)).
+Extensions by radiolab81:
+- **v1.1.0** (10.11.2026): output to smiSDR / parlioSDR with variable DAC widths of 8 to 14 bit
+- **v1.1.1** (11.11.2026): remote control of the station field strength and sferics / lightning simulation (AMWaveSynth protocol), coupling to the AMWaveSynthPropagationSimulator
 
 COHI-Player turns a Raspberry Pi or PC into a small "broadcast station" for vintage radios. It replays recordings of complete AM broadcast bands and/or current internet radio streams on several freely selectable carrier frequencies at the same time, so that an old receiver can be tuned across the dial just like in its day. 
 
@@ -22,6 +27,8 @@ The COHI-Player-Universal does not need any manual interaction for loading or st
 | **COHI-Stream** | Feeds current internet radio streams (MP3/AAC/M3U) as AM carriers on user-defined frequencies |
 | **COHI-Player+Stream** | Both at once: a band recording plus additional live stream carriers |
 
+
+With COHI-Stream and COHI-Player+Stream the band can also be made **alive**: the field strength of every station, and even thunderstorm crackle, can be controlled in real time by a propagation simulator, so that band openings at dusk, fading skywave stations and thunderstorms are heard on the vintage radio (see 2.5).
 
 The three player modes share one program (`cohi_player_main.py`); the mode is selected in `config_sdr.yaml` (`program_variant`). 
 
@@ -66,6 +73,40 @@ Combines both: a band recording plus live stream carriers. On the small 3.5" dis
 | `fl2k` | `native` (Python/NumPy) | ✔ | – | – |
 | `fl2k` | `ffmpeg` | ✔ | – | – |
 | `smisdr` | – (always the compiled C++ tool) | ✔ | ✔ | ✔ |
+
+### 2.5 Realistic propagation: band openings, skywave and thunderstorms
+
+COHI-Stream (and the live stations of COHI-Player+Stream) can be coupled to the **[AMWaveSynthPropagationSimulator](https://github.com/radiolab81/AMWaveSynthPropagationSimulator)**. The simulator knows where each station is transmitted from, where your receiver stands, and calculates for the chosen date and time of day the field strength with ground wave and skywave. It sends the result over the network to COHI-Player, which sets the level of every station accordingly (protocol and settings: 5.6). The simulator can also place thunderstorm cells on the map; they are heard as crackling lightning (sferics) on all stations.
+
+What you get:
+
+- **Daytime:** only the nearby stations are received by ground wave (`GrW`); the band is almost empty.
+- **Dusk and night:** the D layer vanishes, the band opens and many distant stations arrive by skywave (`SkW`). Fast-forwarding through a day lets you hear this like a real evening on the dial.
+- **Receiver location:** the same station list sounds different in southern Germany and in the Netherlands, because different transmitters are near.
+- **Thunderstorms:** a storm cell moving across the map causes crackling bursts, visible as horizontal stripes in the waterfall.
+
+| Receiver in southern Germany, 12:03 UTC | Receiver in southern Germany, 22:46 UTC |
+|---|---|
+| ![Day](www/propagation_day.png) | ![Night](www/propagation_night.png) |
+
+![Thunderstorm cell over Switzerland](www/propagation_storm.png)
+
+| Station map (receiver in southern Germany) | Receiver in the Netherlands |
+|---|---|
+| ![Map](www/propagation_south_germany.png) | ![Netherlands](www/propagation_netherlands.png) |
+
+**Direction-finder scope:** the [DFscope plugin](https://github.com/radiolab81/AMWaveSynthPropagationSimulator/tree/main/plugins/DFscope) of the simulator turns the receiver into a rotating loop antenna (figure-eight pattern, shown around the receiver on the map). The field strength of each station is weighted by its direction, so the stations nearly in line with the lobes get loud, while a station in the null fades away. In the first picture the lobes point towards Groningen (1332 kHz) and Hannover (711 kHz), which dominate the spectrum; in the second the loop has been turned towards Enschede, and Radio Twente Gold (1089 kHz) takes over while 711 and 1332 kHz almost disappear. Just like with a real loop antenna on a vintage radio.
+
+| Loop towards Groningen / Hannover | Loop turned towards Enschede |
+|---|---|
+| ![DF scope 1](www/propagation_dfscope_1.png) | ![DF scope 2](www/propagation_dfscope_2.png) |
+
+**Setup in short**
+
+1. Set `program_variant: COHI-Stream` (or `COHI-Player+Stream`), keep `live_control_port: 8888` and `live_sferics_port: 8889` in `config_sdr.yaml`, start COHI-Player.
+2. Start the AMWaveSynthPropagationSimulator and let it send to the IP address of the COHI-Player computer, UDP port 8888 (and 8889 for lightning).
+3. Load the transmitter locations. The example file [`sources/Web-Streams-Locations.csv`](sources/Web-Streams-Locations.csv) fits the example station list `Web-Streams.csv`: it assigns each station a transmitter location, a frequency in kHz and a transmitter power in kW (columns: location, country, frequency, power, programme name). Frequencies must match the station list. The locations are fictitious test transmitter sites for the simulation, not the real locations of these internet streams.
+4. Set the receiver location on the map. That's it - move the time slider or let it run in real time.
 
 ---
 
@@ -272,6 +313,8 @@ In COHI-Player+Stream the LO frequency and sample rate are taken from the WAV re
 | Key | Meaning |
 |---|---|
 | `live_stations_file` | Station list for COHI-Stream, see 5.4 |
+| `live_control_port` | UDP port (default `8888`, `0` = off) for remote control of the field strength of each live station, see 5.6 |
+| `live_sferics_port` | UDP port (default `8889`, `0` = off) for the sferics / lightning simulation, see 5.6 |
 | `debug_spectrum_window`, `debug_timedomain_window` | `true` opens additional windows with spectrum/waterfall and waveform of the output signal. Only with `display_variant: 2`; requires `pyqtgraph` |
 
 The debug option is only working at Raspberry Pi OS / Linux.
@@ -304,6 +347,8 @@ Frequenz;Bandbreite;Programmname;URL
 | `URL` | Address of the stream (direct stream or M3U playlist) |
 
 An example list with 31 working internet radio stations (many of them with music of the 1920s–1960s) is included as **`Web-Streams.csv`** and is preset in `config_sdr.yaml`. Internet streams change their addresses from time to time – if a station stays silent, check its URL.
+
+A matching location file for the propagation simulator (`Web-Streams-Locations.csv`) is described in 2.5.
 
 The list can be loaded, edited and saved directly in the program (buttons *Load*, *Save*, *Edit*). The program remembers the last list used and loads it again at the next start; `live_stations_file` is only used if no list has been loaded before. Faulty lines are skipped and noted in the log file.
 
@@ -386,6 +431,30 @@ socat -u TCP4-LISTEN:1234,reuseaddr TCP4-LISTEN:1235,reuseaddr
 sudo fl2k_tcp -s 10000000 -p 1235
 
 ```
+
+### 5.6 Remote control of the station field strength (AMWaveSynth protocol)
+
+In COHI-Stream and COHI-Player+Stream the field strength of every live station can be changed in real time over the network, using the same protocol as [AMWaveSynth](https://github.com/radiolab81/AMWaveSynthPropagationSimulator). This allows, e.g., the AMWaveSynthPropagationSimulator to simulate band openings and closings around sunrise/sunset.
+
+- The C++ upconverter listens on the UDP port `live_control_port` (default `8888`, all network interfaces; `0` switches it off).
+- One text datagram per command: `FREQ_HZ:GAIN`, e.g. `603000:0.35`.
+- The station is identified by its carrier frequency in Hz (tolerance < 1 Hz, as in the station list; `603.0 kHz` = `603000`). Frequencies that match no station are ignored.
+- `GAIN` scales carrier and modulation of the station together: `1.0` = unchanged (start value), `0` = station silent, negative values are treated as `0`.
+- Works with `stemlab`, `fl2k` (upconverter `cpp`) and `smisdr`.
+
+Test from a shell:
+
+```bash
+echo -n "603000:0.3" | nc -u -w0 127.0.0.1 8888
+```
+
+**Sferics / lightning simulation** (`live_sferics_port`, default `8889`, `0` = off): one datagram `AMPLITUDE:DURATION_MS` per lightning, e.g. `800:12.5`. A noise burst with an exponentially decaying envelope (falling to 1 % after `DURATION_MS`) is added to the RF signal. `AMPLITUDE` is relative to a carrier with gain 1.0 (`AMPLITUDE/128` = peak noise level), as in AMWaveSynth; very high values are clipped by the DAC width. Active only while live stations are running. With STEMlab the noise is generated as complex noise inside the transmitted band, so the same value is not exactly the same level as with FL2K / smiSDR - adjust the amplitude by ear.
+
+```bash
+echo -n "800:12.5" | nc -u -w0 127.0.0.1 8889
+```
+
+Note: the values are held in the running upconverter process only. It is restarted when the station list is changed (and in COHI-Player+Stream when the recording / sample rate changes); the gains then return to `1.0` until the next command, so the simulator should repeat its values periodically. Recompile the tools with `make` after updating.
 
 ---
 

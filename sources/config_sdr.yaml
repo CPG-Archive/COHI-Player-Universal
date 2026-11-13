@@ -1,7 +1,9 @@
 ####################################################
 # COHI-Player-Universal
-# V1.0.0, 24.10.2026
+# V1.1.1, 11.11.2026
 # Author: Claus Peter Gallenmiller, cpg-radio@gmx.de
+# Modified by radiolab81:
+#   V1.1.1, 11.11.2026: UDP field strength control, sferics / lightning simulation (AMWaveSynth protocol)
 ####################################################
 
 # Configuration file of COHI-Player-Universal.
@@ -169,6 +171,25 @@ smisdr_offset: false
 # saved in the program; the program remembers the list used last and prefers
 # it to this entry.
 live_stations_file: Web-Streams.csv
+
+# UDP control port for the field strength of each live station, same protocol
+# as AMWaveSynth (e.g. for AMWaveSynthPropagationSimulator, to simulate band
+# openings/closings at sunrise/sunset in real time). One text datagram per
+# command: "FREQ_HZ:GAIN", e.g. "603000:0.35" (carrier frequency in Hz as in
+# the station list, GAIN 1.0 = unchanged, 0 = station off). The gain scales
+# carrier and modulation of the station together. The port listens on all
+# network interfaces. 0 = control port off.
+# Test: echo -n "603000:0.3" | nc -u -w0 127.0.0.1 8888
+live_control_port: 8888
+
+# UDP port for the sferics / lightning simulation, same protocol as
+# AMWaveSynth. One text datagram per lightning: "AMPLITUDE:DURATION_MS",
+# e.g. "800:12.5" (noise burst with exponentially decaying envelope, falls to
+# 1 % after DURATION_MS). The amplitude is relative to a carrier with gain 1.0
+# (AMPLITUDE/128 = peak noise level). Active with live streams only.
+# 0 = sferics port off.
+# Test: echo -n "800:12.5" | nc -u -w0 127.0.0.1 8889
+live_sferics_port: 8889
 
 # Only for hwconfig: stemlab together with program_variant: COHI-Stream.
 # The live stations are generated around a centre frequency (LO) and
