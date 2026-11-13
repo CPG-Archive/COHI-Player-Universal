@@ -1,7 +1,9 @@
 ####################################################
 # COHI-Player-Universal
-# V1.0.0, 24.10.2026
+# V1.1.1, 11.11.2026
 # Author: Claus Peter Gallenmiller, cpg-radio@gmx.de
+# Modified by radiolab81:
+#   V1.1.1, 11.11.2026: UDP field strength control, sferics / lightning simulation (AMWaveSynth protocol)
 ####################################################
 
 import logging

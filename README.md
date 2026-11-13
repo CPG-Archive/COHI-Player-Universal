@@ -1,6 +1,11 @@
 # COHI-Player-Universal
 
-**Version 1.0.0** · Author: Claus Peter Gallenmiller · License: [GPL-3.0](LICENSE)
+**Version 1.1.1** · License: [GPL-3.0](LICENSE)
+
+Original author: Claus Peter Gallenmiller (v1.0.0, [CPG-Archive/COHI-Player-Universal](https://github.com/CPG-Archive/COHI-Player-Universal)).
+Extensions by radiolab81:
+- **v1.1.0** (10.11.2026): output to smiSDR / parlioSDR with variable DAC widths of 8 to 14 bit
+- **v1.1.1** (11.11.2026): remote control of the station field strength and sferics / lightning simulation (AMWaveSynth protocol), coupling to the AMWaveSynthPropagationSimulator
 
 COHI-Player turns a Raspberry Pi or PC into a small "broadcast station" for vintage radios. It replays recordings of complete AM broadcast bands and/or current internet radio streams on several freely selectable carrier frequencies at the same time, so that an old receiver can be tuned across the dial just like in its day. 
 
