@@ -383,9 +383,30 @@ https://example.com/audio/title2.mp3
 ```
 
 | Line | Meaning |
-|
+|---|---|
+| `#PLAYLIST:<name>` | Starts a station; the name is shown in the program |
+| `#EXTGRP:<kHz>` | Carrier frequency of the station in kHz |
+| `#EXTPARAM_BW:<kHz>` | Optional, directly after `#PLAYLIST`: audio bandwidth of this station |
+| `#EXTINF:-1,<artist>-<title>` | Title line (the text is only used for display/editing) |
+| file or web address | The audio source; the entries of a station are played one after another as an endless playlist. A single web address is played as a live stream |
 
-A matching location file for the propagation simulator (`Web-Streams-Locations.csv`) is described in 2.5.
+**Global parameters.** Optional lines of the form `#EXTPARAM_<NAME>: <value>` **before the first `#PLAYLIST`** apply to the whole file. They take **priority** over the values in `config_sdr.yaml`; a missing (or invalid) parameter simply leaves the value from `config_sdr.yaml` or the default in effect. Invalid values are noted in the log file.
+
+| Parameter | Unit | Meaning in COHI-Stream |
+|---|---|---|
+| `#EXTPARAM_BW` | kHz | Default bandwidth of the stations (display only) |
+| `#EXTPARAM_FILEPREFIX` | text | Put in front of every entry that is not already a complete web address or absolute path, e.g. `https://example.com/audio/` or `/home/pi/music/` (plain concatenation – include the trailing `/`). The spelling `#EXTPARAM_FILEPREXIX` is accepted as well |
+| `#EXTPARAM_LOFREQ` | kHz | STEMlab with COHI-Stream: LO frequency, replaces `stemlab_live_lo_freq` |
+| `#EXTPARAM_SAMPLERATE` | kHz | STEMlab with COHI-Stream: sample rate, replaces `stemlab_live_sample_rate` (one of the rates supported by the STEMlab) |
+| `#EXTPARAM_SILENCE` | s | Pause between two titles of a playlist |
+| `#EXTPARAM_MODDEPTH` | 0 … 1 | Modulation depth of the live stations (default `0.8`; `80` is read as 80 %). STEMlab: set directly. FL2K and smiSDR: the level of the live part changes in proportion to `MODDEPTH / 0.8` (relative to `fl2k_live_gain_shift`) |
+| `#EXTPARAM_RECLENGTH`, `#EXTPARAM_OUTPUTFILE` | | Ignored by COHI-Stream |
+
+Notes:
+
+- LO frequency and sample rate are applied when the program starts. If a list with different values is loaded later, they take effect after a restart (a note is shown in the status line). In COHI-Player+Stream both are taken from the WAV recording; the entries are then ignored. For STEMlab with COHI-Stream the entries `stemlab_live_lo_freq` and `stemlab_live_sample_rate` must still be present in `config_sdr.yaml`.
+- Pauses between titles need `ffmpeg`.
+- An M3U list is saved again in the same format (including the global parameters). When a station with several entries is edited in the station editor, its playlist is kept as long as the URL field is not changed; a changed URL replaces the whole playlist by that single address. Saving as CSV keeps only the first address of each station.
 
 The list can be loaded, edited and saved directly in the program (buttons *Load*, *Save*, *Edit*). The program remembers the last list used and loads it again at the next start; `live_stations_file` is only used if no list has been loaded before. Faulty lines are skipped and noted in the log file.
 
