@@ -1,6 +1,6 @@
 ####################################################
 # COHI-Player-Universal
-# V1.1.1, 11.11.2026
+# V1.2.0, 12.11.2026
 # Author: Claus Peter Gallenmiller, cpg-radio@gmx.de
 # Modified by radiolab81:
 #   V1.1.1, 11.11.2026: UDP field strength control, sferics / lightning simulation (AMWaveSynth protocol)
@@ -107,6 +107,17 @@ debug_timedomain_window: false
 #   ffmpeg - via ffmpeg (high CPU load; mainly for Windows)
 fl2k_upconverter: cpp
 
+# Only for fl2k_upconverter: cpp (also used for hwconfig: smisdr) - output level
+# of the COHI-Stream (live) part. Each whole step lowers the level of the live
+# stations by 6 dB: 2 = quiet, 1 = loud, 0 = loudest (+12 dB compared with 2;
+# with many stations at the same time the sum signal can reach full scale and
+# clip, which is audible as distortion and intermodulation). Fractions allow
+# fine adjustment: 1.5 = 3 dB below 1 (value used if the key is omitted),
+# 1.25 = 1.5 dB below 1, 1.75 = 4.5 dB below 1. Fractional values need
+# cohi_native_upconverter compiled from the current source (run "make" again);
+# whole numbers also work with an older binary. Does not affect WAV playback.
+fl2k_live_gain_shift: 1
+
 # Optional paths to fl2k_file and ffmpeg. Without these entries the programs
 # are searched in the PATH (Linux) or in default subdirectories of the program
 # directory (Windows). Example for Windows:
@@ -166,10 +177,32 @@ smisdr_offset: false
 # COHI-Stream (only for program_variant: COHI-Stream or COHI-Player+Stream)
 # ---------------------------------------------------------------------------
 
-# Station list (CSV, semicolon-separated, columns:
-# Frequenz;Bandbreite;Programmname;URL). The list can be loaded, edited and
-# saved in the program; the program remembers the list used last and prefers
-# it to this entry.
+# Station list. The format is chosen by the file extension:
+#  - .csv: semicolon-separated, columns Frequenz;Bandbreite;Programmname;URL,
+#          one URL per station
+#  - .m3u: extended M3U format, also used by COHI-Coder - the stations AND
+#          their playlists (files or web addresses) in ONE file. Per station:
+#            #PLAYLIST:<name>   #EXTGRP:<carrier in kHz>   [#EXTPARAM_BW:<kHz>]
+#            #EXTINF:-1,<artist>-<title>   followed by a file or web address
+#          Optional global header lines (before the first #PLAYLIST). They take
+#          PRIORITY over the values in this file; if one is missing, the value
+#          from this file or the default is used:
+#            #EXTPARAM_BW         bandwidth in kHz (display only in COHI-Stream)
+#            #EXTPARAM_FILEPREFIX text put in front of every entry that is not
+#                                 already a full URL / absolute path
+#            #EXTPARAM_LOFREQ     LO frequency in kHz  } stemlab_live_lo_freq /
+#            #EXTPARAM_SAMPLERATE sample rate in kHz   } stemlab_live_sample_rate
+#                                 (only hwconfig: stemlab + COHI-Stream)
+#            #EXTPARAM_SILENCE    seconds of silence between two titles
+#            #EXTPARAM_MODDEPTH   modulation depth 0..1 (default 0.8); with
+#                                 FL2K / smisdr the live level changes in
+#                                 proportion to MODDEPTH/0.8 (relative to
+#                                 fl2k_live_gain_shift)
+#            (#EXTPARAM_RECLENGTH and #EXTPARAM_OUTPUTFILE are ignored by
+#            COHI-Stream.) A station with several entries is played as an
+#            endless playlist.
+# The list can be loaded, edited and saved in the program; the program
+# remembers the list used last and prefers it to this entry.
 live_stations_file: Web-Streams.csv
 
 # UDP control port for the field strength of each live station, same protocol

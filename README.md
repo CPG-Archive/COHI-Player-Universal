@@ -1,11 +1,12 @@
 # COHI-Player-Universal
 
-**Version 1.1.1** · License: [GPL-3.0](LICENSE)
+**Version 1.2.0** · License: [GPL-3.0](LICENSE)
 
 Original author: Claus Peter Gallenmiller (v1.0.0, [CPG-Archive/COHI-Player-Universal](https://github.com/CPG-Archive/COHI-Player-Universal)).
 Extensions by radiolab81:
 - **v1.1.0** (10.11.2026): output to smiSDR / parlioSDR with variable DAC widths of 8 to 14 bit
 - **v1.1.1** (11.11.2026): remote control of the station field strength and sferics / lightning simulation (AMWaveSynth protocol), coupling to the AMWaveSynthPropagationSimulator
+- **v1.2.0** (12.11.2026): the remote control, sferics and smiSDR / parlioSDR extensions were adopted into the main line; new in 1.2: extended M3U station lists and level adjustment of the live part (`fl2k_live_gain_shift`, modulation depth)
 
 COHI-Player turns a Raspberry Pi or PC into a small "broadcast station" for vintage radios. It replays recordings of complete AM broadcast bands and/or current internet radio streams on several freely selectable carrier frequencies at the same time, so that an old receiver can be tuned across the dial just like in its day. 
 
@@ -55,6 +56,8 @@ Replays I/Q WAV recordings in the SDR formats "auxi" (SDRuno, including chained 
 Plays a list of internet radio stations simultaneously, each on its own carrier frequency and with its own audio bandwidth. The station list can be edited directly in the program.
 
 ![COHI-Stream](www/cohi_stream.png)
+
+The stations can be maintained either in a CSV list (one stream address per station) or – new in 1.2 – in **one extended M3U file** that contains the stations *and* their playlists of local files or web addresses (see 5.4).
 
 ![COHI-Stream – station editor](www/cohi_stream_station_editor.png)
 
@@ -296,6 +299,7 @@ In COHI-Player+Stream the LO frequency and sample rate are taken from the WAV re
 | `fl2k_upconverter` | `cpp` (recommended, required for live streams), `native` (Python, sufficient on a Pi 5) or `ffmpeg` (high CPU load, mainly for Windows) |
 | `fl2k_path`, `ffmpeg_path` | Optional paths to `fl2k_file` and `ffmpeg` (mainly for Windows) |
 | `fl2k_cpp_upconverter_path` | Optional path to `cohi_native_upconverter` |
+| `fl2k_live_gain_shift` | Only with `fl2k_upconverter: cpp` (and `smisdr`): output level of the COHI-Stream part. Each whole step changes the level by 6 dB: `2` = quiet, `1` = loud, `0` = loudest. With many stations at the same time the sum signal can clip, which is audible as distortion and intermodulation – then use a higher value. Fractions allow fine adjustment: `1.5` (default if the key is missing) is 3 dB below `1`, `1.25` is 1.5 dB below `1`. Fractional values need `cohi_native_upconverter` compiled from the current source (run `make` again). Does not affect WAV playback |
 
 **smiSDR / parlioSDR**
 
@@ -307,12 +311,13 @@ In COHI-Player+Stream the LO frequency and sample rate are taken from the WAV re
 | `smisdr_format` | `8` = 8 bit native (int8), `816` = 8 bit values in 16 bit words (int16, little endian), `10` / `12` / `14` = DAC with 10 / 12 / 14 bit as int16 (little endian, full scale ±511 / ±2047 / ±8191), see 5.5 |
 | `smisdr_offset` | Only with `smisdr_format: 8`: `true` = unsigned 8 bit (DC offset +128), `false` = signed (default) |
 | `fl2k_cpp_upconverter_path` | Optional path to `cohi_native_upconverter` (is used for smisdr as well) |
+| `fl2k_live_gain_shift` | Level of the COHI-Stream part, same meaning as for FL2K (see above) |
 
 **Live streams and debugging**
 
 | Key | Meaning |
 |---|---|
-| `live_stations_file` | Station list for COHI-Stream, see 5.4 |
+| `live_stations_file` | Station list for COHI-Stream: a `.csv` or `.m3u` file, see 5.4 |
 | `live_control_port` | UDP port (default `8888`, `0` = off) for remote control of the field strength of each live station, see 5.6 |
 | `live_sferics_port` | UDP port (default `8889`, `0` = off) for the sferics / lightning simulation, see 5.6 |
 | `debug_spectrum_window`, `debug_timedomain_window` | `true` opens additional windows with spectrum/waterfall and waveform of the output signal. Only with `display_variant: 2`; requires `pyqtgraph` |
@@ -331,6 +336,10 @@ With `auto`, a German system language selects German, every other language Engli
 
 ### 5.4 Station list for COHI-Stream
 
+The station list can be a **CSV file** (5.4.1) or an **extended M3U file** (5.4.2). The format is recognised by the file extension (`.csv` or `.m3u` / `.m3u8`) – when loading and when saving.
+
+#### 5.4.1 CSV list
+
 The stations are stored in a CSV file (semicolon-separated, UTF-8). The column headers must be written exactly as shown (in German):
 
 ```csv
@@ -347,6 +356,34 @@ Frequenz;Bandbreite;Programmname;URL
 | `URL` | Address of the stream (direct stream or M3U playlist) |
 
 An example list with 31 working internet radio stations (many of them with music of the 1920s–1960s) is included as **`Web-Streams.csv`** and is preset in `config_sdr.yaml`. Internet streams change their addresses from time to time – if a station stays silent, check its URL.
+
+The `URL` of a station can also be a local **M3U playlist**. If it contains two or more entries (local files and/or web addresses), the entries are played one after another as an endless playlist. A remote M3U (as used by many radio stations as a pointer to the real stream) and a playlist with a single entry use the first entry only.
+
+#### 5.4.2 Extended M3U list (stations and playlists in one file)
+
+If many stations with many titles are to be maintained, it is easier to keep everything in **one** M3U file instead of a CSV list plus one M3U file per station. Per station there is a `#PLAYLIST` block:
+
+```m3u
+#EXTM3U
+#EXTPARAM_BW: 7
+#EXTPARAM_SILENCE: 2
+
+#PLAYLIST: Station A
+#EXTGRP: 576
+#EXTINF:-1,Artist 1-Title 1
+https://example.com/audio/title1.mp3
+#EXTINF:-1,Artist 2-Title 2
+https://example.com/audio/title2.mp3
+
+#PLAYLIST: Station B
+#EXTGRP: 648
+#EXTPARAM_BW: 6
+#EXTINF:-1,Artist 3-Title 3
+/home/pi/music/title3.mp3
+```
+
+| Line | Meaning |
+|
 
 A matching location file for the propagation simulator (`Web-Streams-Locations.csv`) is described in 2.5.
 
@@ -448,7 +485,7 @@ Test from a shell:
 echo -n "603000:0.3" | nc -u -w0 127.0.0.1 8888
 ```
 
-**Sferics / lightning simulation** (`live_sferics_port`, default `8889`, `0` = off): one datagram `AMPLITUDE:DURATION_MS` per lightning, e.g. `800:12.5`. A noise burst with an exponentially decaying envelope (falling to 1 % after `DURATION_MS`) is added to the RF signal. `AMPLITUDE` is relative to a carrier with gain 1.0 (`AMPLITUDE/128` = peak noise level), as in AMWaveSynth; very high values are clipped by the DAC width. Active only while live stations are running. With STEMlab the noise is generated as complex noise inside the transmitted band, so the same value is not exactly the same level as with FL2K / smiSDR - adjust the amplitude by ear.
+**Sferics / lightning simulation** (`live_sferics_port`, default `8889`, `0` = off): one datagram `AMPLITUDE:DURATION_MS` per lightning, e.g. `800:12.5`. A noise burst with an exponentially decaying envelope (falling to 1 % after `DURATION_MS`) is added to the RF signal. `AMPLITUDE` is relative to a carrier with gain 1.0 (`AMPLITUDE/128` = peak noise level), as in AMWaveSynth; with FL2K / smiSDR the burst follows the live level set by `fl2k_live_gain_shift`, like the carriers; very high values are clipped by the DAC width. Active only while live stations are running. With STEMlab the noise is generated as complex noise inside the transmitted band, so the same value is not exactly the same level as with FL2K / smiSDR - adjust the amplitude by ear.
 
 ```bash
 echo -n "800:12.5" | nc -u -w0 127.0.0.1 8889
@@ -480,7 +517,7 @@ The program connects to the output hardware (with STEMlab: searches for it on th
 ### 6.3 COHI-Stream
 
 - The table shows all stations of the station list with frequency, bandwidth and a status indicator (green = stream is running, red = no data).
-- **Load / Save:** open another station list or save the current one.
+- **Load / Save:** open another station list (CSV or M3U) or save the current one (in the format of the loaded list; the file extension decides).
 - **Edit** (or double-tap a line): opens the station editor to add, modify or delete a station. Changes take effect immediately.
 - When the program is closed with unsaved changes, it asks whether they should be saved.
 
@@ -514,6 +551,8 @@ The sample rate of the recording must be supported by the output hardware; for S
 | A live station stays silent (red status) | The stream address may have changed – check the URL in the station list. |
 | Standard buttons (Yes/No) remain English with `language: de` | Install `qttranslations5-l10n`. |
 | High CPU load with FL2K | Use `fl2k_upconverter: cpp`. |
+| Live stations (COHI-Stream) are distorted or sound as if intermodulating, or are too quiet with FL2K / smiSDR | Adjust `fl2k_live_gain_shift` (higher = quieter, see 5.2); fractions such as `1.25` or `1.5` allow fine steps |
+| A playlist in the M3U list stops after the first title or restarts | Make sure the station has at least two entries; for local playlists with web addresses the connection must stay available. Check the log file for the line “recognized as playlist” |
 
 For any problem, the log file `system_log.log` in the program directory is the first place to look (with `log_mode: append` it covers several program runs).
 

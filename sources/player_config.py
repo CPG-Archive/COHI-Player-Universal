@@ -1,6 +1,6 @@
 ####################################################
 # COHI-Player-Universal
-# V1.1.1, 11.11.2026
+# V1.2.0, 12.11.2026
 # Author: Claus Peter Gallenmiller, cpg-radio@gmx.de
 # Modified by radiolab81:
 #   V1.1.1, 11.11.2026: UDP field strength control, sferics / lightning simulation (AMWaveSynth protocol)
@@ -57,6 +57,7 @@ class PlayerConfig:
         self.ffmpeg_tool_path = None
         self.fl2k_upconverter = "ffmpeg"
         self.fl2k_cpp_upconverter_path = None
+        self.fl2k_live_gain_shift = 1.5
         self.program_variant = "COHI-Player"
         self.display_variant = 1
         self.debug_spectrum_window = False
@@ -121,6 +122,19 @@ class PlayerConfig:
         if self.agc_interval < 0:
             raise ConfigError(tr("{key} in {file} must not be negative").format(
                 key="agc_interval", file=self.CONFIG_FILE))
+
+        try:
+            live_gain_raw = self._raw_config.get("fl2k_live_gain_shift", 1.5)
+            if isinstance(live_gain_raw, str):
+                live_gain_raw = live_gain_raw.replace(",", ".")
+            self.fl2k_live_gain_shift = float(live_gain_raw)
+        except (TypeError, ValueError) as exc:
+            raise ConfigError(tr("invalid value for {key} in {file}: {error}").format(
+                key="fl2k_live_gain_shift", file=self.CONFIG_FILE, error=exc)) from exc
+        if not 0 <= self.fl2k_live_gain_shift <= 6:
+            raise ConfigError(tr("invalid value for {key} in {file}: '{value}' (valid: {valid})").format(
+                key="fl2k_live_gain_shift", file=self.CONFIG_FILE,
+                value=self.fl2k_live_gain_shift, valid="0 ... 6"))
 
         self.program_variant = self._raw_config.get("program_variant", DEFAULT_PROGRAM_VARIANT)
         if self.program_variant not in VALID_PROGRAM_VARIANTS:

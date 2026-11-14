@@ -1,6 +1,6 @@
 ####################################################
 # COHI-Player-Universal
-# V1.1.1, 11.11.2026
+# V1.2.0, 12.11.2026
 # Author: Claus Peter Gallenmiller, cpg-radio@gmx.de
 # Modified by radiolab81:
 #   V1.1.0, 10.11.2026: smiSDR / parlioSDR output with 8 to 14 bit DAC formats
@@ -38,7 +38,7 @@ import psutil
 
 import live_streams
 from fl2k_backend import _PipeSink
-from fl2k_cpp_backend import Fl2kCppBackend
+from fl2k_cpp_backend import DEFAULT_LIVE_GAIN_SHIFT, Fl2kCppBackend
 from i18n import tr
 
 logger = logging.getLogger(__name__)
@@ -131,12 +131,16 @@ class SmisdrBackend(Fl2kCppBackend):
                  control_port=DEFAULT_CONTROL_PORT, rate_setting=SMISDR_RATE_AUTO,
                  sample_format=SMISDR_FORMAT_8, offset_binary=False,
                  upconverter_tool_path=None, live_enabled=False,
-                 live_stations_file=None, live_control_port=0, live_sferics_port=0, parent=None):
+                 live_stations_file=None, live_control_port=0, live_sferics_port=0,
+                 live_gain_shift=DEFAULT_LIVE_GAIN_SHIFT, parent=None):
+        # live_gain_shift (Pegel des COHI-Stream-Anteils, siehe
+        # fl2k_live_gain_shift in config_sdr.yaml) wird an Fl2kCppBackend
+        # durchgereicht - dieselbe Mischstufe wie bei FL2K
         super().__init__(fl2k_tool_path=None, upconverter_tool_path=upconverter_tool_path,
                          live_enabled=live_enabled, live_stations_file=live_stations_file,
                          live_control_port=live_control_port,
                          live_sferics_port=live_sferics_port,
-                         parent=parent)
+                         live_gain_shift=live_gain_shift, parent=parent)
         self.address = address or DEFAULT_ADDRESS
         self.data_port = int(data_port)
         self.control_port = control_port  # None = no control port (fixed hardware)

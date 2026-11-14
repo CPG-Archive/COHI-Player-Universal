@@ -1,6 +1,6 @@
 ####################################################
 # COHI-Player-Universal
-# V1.1.1, 11.11.2026
+# V1.2.0, 12.11.2026
 # Author: Claus Peter Gallenmiller, cpg-radio@gmx.de
 # Modified by radiolab81:
 #   V1.1.1, 11.11.2026: UDP field strength control, sferics / lightning simulation (AMWaveSynth protocol)
@@ -513,6 +513,10 @@ class StemlabBackend(DeviceBackend):
             command += ["--live-control-port", str(self.live_control_port)]
         if self.live_sferics_port > 0:
             command += ["--live-sferics-port", str(self.live_sferics_port)]
+        mod_depth = live_streams.station_list_mod_depth(stations)
+        if mod_depth is not None:
+            command += ["--modulation-depth", f"{mod_depth:.4f}"]
+            logger.info("COHI-Stream (STEMlab): modulation depth %.2f from the station list", mod_depth)
         if not self._upconverter_binary_available():
             logger.error("COHI-Stream (STEMlab): cohi_stemlab_live_upconverter not found: %s",
                          self.live_upconverter_tool_path)

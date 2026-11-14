@@ -1,6 +1,6 @@
 ####################################################
 # COHI-Player-Universal
-# V1.0.0, 24.10.2026
+# V1.2.0, 12.11.2026
 # Author: Claus Peter Gallenmiller, cpg-radio@gmx.de
 # Modified by radiolab81:
 #   V1.1.1, 11.11.2026: UDP field strength control, sferics / lightning simulation (AMWaveSynth protocol)
@@ -40,7 +40,8 @@ def create_backend(config):
                                       live_enabled=config.live_enabled,
                                       live_stations_file=config.live_stations_file,
                                       live_control_port=config.live_control_port,
-                                      live_sferics_port=config.live_sferics_port)
+                                      live_sferics_port=config.live_sferics_port,
+                                      live_gain_shift=config.fl2k_live_gain_shift)
         else:
             from fl2k_backend import Fl2kBackend
             backend = Fl2kBackend(fl2k_tool_path=config.fl2k_tool_path,
@@ -65,7 +66,8 @@ def create_backend(config):
                                  live_enabled=config.live_enabled,
                                  live_stations_file=config.live_stations_file,
                                  live_control_port=config.live_control_port,
-                                 live_sferics_port=config.live_sferics_port)
+                                 live_sferics_port=config.live_sferics_port,
+                                 live_gain_shift=config.fl2k_live_gain_shift)
     else:
         raise ValueError(tr("unknown hwconfig '{value}' in config_sdr.yaml (known: {known})").format(
             value=config.hwconfig, known=", ".join(KNOWN_HWCONFIGS)))

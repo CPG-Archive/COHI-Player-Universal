@@ -1,6 +1,6 @@
 ####################################################
 # COHI-Player-Universal
-# V1.0.0, 24.10.2026
+# V1.2.0, 12.11.2026
 # Author: Claus Peter Gallenmiller, cpg-radio@gmx.de
 ####################################################
 
@@ -13,11 +13,18 @@ import threading
 import time
 import urllib.request
 
+from m3u_playlist import (
+    Channel, PlaylistParseError, Track, apply_fileprefix, is_url,
+    parse_combined_playlist_full, write_combined_playlist)
 from fl2k_backend import _drain_pipe
 
 logger = logging.getLogger(__name__)
 
 _health_check_stop_event = None
+
+DEFAULT_STATION_BANDWIDTH_HZ = 4500.0
+
+REFERENCE_MODULATION_DEPTH = 0.8
 
 LIVE_AUDIO_RATE = 22050
 
@@ -34,7 +41,7 @@ LIVE_HEALTH_CHECK_INTERVAL_S = 15.0
 
 class LiveStation:
     __slots__ = ("frequency_hz", "bandwidth_hz", "name", "url", "udp_port", "process",
-                 "concat_file_path")
+                 "concat_file_path", "tracks", "entries", "silence_s")
 
     def __init__(self, frequency_hz, bandwidth_hz, name, url, udp_port):
         self.frequency_hz = frequency_hz
@@ -42,6 +49,9 @@ class LiveStation:
         self.name = name
         self.url = url
         self.udp_port = udp_port
+        self.tracks = None
+        self.entries = None
+        self.silence_s = 0.0
         self.process = None
         self.concat_file_path = None
 
@@ -59,8 +69,68 @@ def _parse_frequency_to_hz(text):
     return value * multiplier
 
 
+class StationList(list):
+    def __init__(self, iterable=(), params=None):
+        super().__init__(iterable)
+        self.params = params
+
+
+def station_list_mod_depth(stations):
+    params = getattr(stations, "params", None)
+    return None if params is None else params.moddepth
+
+
+def is_m3u_station_list(path):
+    return str(path).lower().endswith((".m3u", ".m3u8"))
+
+
+def inherit_playlist(new_station, old_station):
+    if old_station is not None and old_station.tracks and new_station.url == old_station.url:
+        new_station.tracks = old_station.tracks
+        new_station.entries = old_station.entries
+        new_station.silence_s = old_station.silence_s
+    return new_station
+
+
+def _load_station_list_m3u(path):
+    try:
+        try:
+            channels, params = parse_combined_playlist_full(path, encoding="utf-8")
+        except PlaylistParseError:
+            channels, params = parse_combined_playlist_full(path, encoding="cp1252")
+    except (OSError, PlaylistParseError) as exc:
+        logger.error("COHI-Stream: station list %s could not be read: %s", path, exc)
+        return StationList()
+
+    for warning in params.warnings:
+        logger.warning("station list %s: %s", path, warning)
+
+    stations = StationList(params=params)
+    for channel in channels:
+        if channel.bandwidth_khz is not None:
+            bandwidth_hz = channel.bandwidth_khz * 1000.0
+        elif params.bw_khz is not None:
+            bandwidth_hz = params.bw_khz * 1000.0
+        else:
+            bandwidth_hz = DEFAULT_STATION_BANDWIDTH_HZ
+        entries = [apply_fileprefix(track.filename, params.fileprefix) for track in channel.tracks]
+        station = LiveStation(channel.carrier_freq_hz, bandwidth_hz, channel.name, entries[0], 0)
+        station.tracks = list(channel.tracks)
+        station.entries = entries
+        station.silence_s = params.silence_s or 0.0
+        stations.append(station)
+
+    reassign_ports(stations)
+    logger.info("COHI-Stream: station list %s: %d stations loaded (M3U, %d entries, silence %.1f s)",
+                path, len(stations), sum(len(st.entries) for st in stations),
+                params.silence_s or 0.0)
+    return stations
+
+
 def load_station_list(csv_path):
-    stations = []
+    if is_m3u_station_list(csv_path):
+        return _load_station_list_m3u(csv_path)
+    stations = StationList()
     try:
         stream = open(csv_path, "r", encoding="utf-8-sig", newline="")
     except OSError as exc:
@@ -93,7 +163,26 @@ def reassign_ports(stations):
         station.udp_port = LIVE_UDP_BASE_PORT + index
 
 
-def save_station_list(stations, csv_path):
+def _save_station_list_m3u(stations, path, params):
+    channels = []
+    for station in stations:
+        tracks = station.tracks or [Track(title=station.name, filename=station.url)]
+        bandwidth_khz = station.bandwidth_hz / 1000.0
+        if params is not None and params.bw_khz is not None \
+                and abs(bandwidth_khz - params.bw_khz) < 1e-6:
+            bandwidth_khz = None
+        channels.append(Channel(name=station.name, carrier_freq_hz=station.frequency_hz,
+                                tracks=list(tracks), bandwidth_khz=bandwidth_khz))
+    write_combined_playlist(channels, path, params=params)
+    logger.info("COHI-Stream: station list with %d stations saved to %s (M3U)", len(stations), path)
+
+
+def save_station_list(stations, csv_path, params=None):
+    if is_m3u_station_list(csv_path):
+        if params is None:
+            params = getattr(stations, "params", None)
+        _save_station_list_m3u(stations, csv_path, params)
+        return
     with open(csv_path, "w", encoding="utf-8-sig", newline="") as stream:
         writer = csv.writer(stream, delimiter=";")
         writer.writerow(["Frequenz", "Bandbreite", "Programmname", "URL"])
@@ -182,23 +271,69 @@ def _resolve_stream_source(url):
     all_local = all(not e.startswith(("http://", "https://")) for e in entries)
     if all_local:
         return None, entries
+
+    if not url.startswith(("http://", "https://")) and len(entries) >= 2:
+        return None, entries
     return entries[0], None
 
 
+_silence_files = {}
+
+
+def _silence_file(seconds):
+    key = round(float(seconds), 3)
+    path = _silence_files.get(key)
+    if path and os.path.isfile(path):
+        return path
+    handle = tempfile.NamedTemporaryFile(suffix=".mp3", prefix="cohi_silence_", delete=False)
+    handle.close()
+    command = ["ffmpeg", "-loglevel", "error", "-y", "-f", "lavfi",
+               "-i", f"anullsrc=r={LIVE_AUDIO_RATE}:cl=mono", "-t", str(key),
+               "-b:a", "32k", handle.name]
+    try:
+        result = subprocess.run(command, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                                stderr=subprocess.PIPE, timeout=30)
+        ok = result.returncode == 0 and os.path.getsize(handle.name) > 0
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        logger.warning("COHI-Stream: silence file could not be created: %s", exc)
+        ok = False
+    if not ok:
+        logger.warning("COHI-Stream: silence between tracks (%.1f s) not available - "
+                       "playlists run without gaps", key)
+        try:
+            os.unlink(handle.name)
+        except OSError:
+            pass
+        return None
+    _silence_files[key] = handle.name
+    return handle.name
+
+
 def _build_input_args(station):
-    single, playlist = _resolve_stream_source(station.url)
+    if station.entries and (len(station.entries) >= 2 or not is_url(station.entries[0])):
+        single, playlist = None, list(station.entries)
+    elif station.entries:
+        single, playlist = _resolve_stream_source(station.entries[0])
+    else:
+        single, playlist = _resolve_stream_source(station.url)
 
     if playlist:
+        silence_file = _silence_file(station.silence_s) if station.silence_s > 0 else None
+        if silence_file:
+            silence_file = silence_file.replace("\\", "/")
         concat_file = tempfile.NamedTemporaryFile(
             mode="w", suffix=".ffconcat", delete=False, encoding="utf-8")
         for _ in range(LOCAL_PLAYLIST_REPEAT_COUNT):
             for entry in playlist:
                 concat_file.write("file '{}'\n".format(entry.replace("'", r"'\''")))
+                if silence_file:
+                    concat_file.write("file '{}'\n".format(silence_file.replace("'", r"'\''")))
         concat_file.close()
         station.concat_file_path = concat_file.name
-        logger.info("COHI-Stream: '%s' recognized as local playlist (%d files, repeated %dx)",
+        logger.info("COHI-Stream: '%s' recognized as playlist (%d entries, repeated %dx)",
                      station.name, len(playlist), LOCAL_PLAYLIST_REPEAT_COUNT)
-        return ["-re", "-f", "concat", "-safe", "0", "-i", concat_file.name]
+        return ["-re", "-protocol_whitelist", "file,http,https,tcp,tls,crypto,data",
+                "-f", "concat", "-safe", "0", "-i", concat_file.name]
 
     source = single
     if source.startswith(("http://", "https://")):
@@ -295,6 +430,13 @@ def stop_station_decoders(stations):
             except OSError:
                 pass
             station.concat_file_path = None
+
+    for silence_path in list(_silence_files.values()):
+        try:
+            os.unlink(silence_path)
+        except OSError:
+            pass
+    _silence_files.clear()
 
 
 def build_live_channel_args(stations):

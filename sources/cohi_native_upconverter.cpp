@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////
 // COHI-Player-Universal
-// V1.1.1, 11.11.2026
+// V1.2.0, 12.11.2026
 // Author: Claus Peter Gallenmiller, cpg-radio@gmx.de
 // Modified by radiolab81:
 //   V1.1.0, 10.11.2026: smiSDR / parlioSDR output with 8 to 14 bit DAC formats
@@ -54,6 +54,7 @@ struct Args {
     int fir_taps = 15;
     std::vector<LiveChannelArg> live_channels;
     int live_gain_shift = 2;
+    double live_gain_trim = 1.0;
     int live_control_port = 0;
     int live_sferics_port = 0;
     int debug_udp_port = 0;
@@ -221,6 +222,14 @@ bool parse_args(int argc, char** argv, Args& out) {
         } else if (arg == "--live-gain-shift") {
             if (i + 1 >= argc) return false;
             out.live_gain_shift = std::atoi(argv[++i]);
+        } else if (arg == "--live-gain-trim") {
+            if (i + 1 >= argc) return false;
+            out.live_gain_trim = std::atof(argv[++i]);
+            if (!(out.live_gain_trim > 0.0 && out.live_gain_trim <= 1.0)) {
+                std::fprintf(stderr, "cohi_native_upconverter: --live-gain-trim muss im Bereich "
+                             "0 < F <= 1 liegen\n");
+                return false;
+            }
         } else if (arg == "--live-control-port") {
             if (i + 1 >= argc) return false;
             out.live_control_port = std::atoi(argv[++i]);
@@ -652,7 +661,7 @@ int main(int argc, char** argv) {
             "Verwendung: %s --sample-rate HZ --center-freq HZ --target-rate HZ "
             "[--output-shift N] [--output-bits 8|10|12|14] [--fir-taps N] "
             "[--live-channel PORT:FREQ:AUDIORATE ...] [--live-gain-shift N] "
-            "[--live-control-port UDPPORT] [--live-sferics-port UDPPORT]\n", argv[0]);
+            "[--live-gain-trim F] [--live-control-port UDPPORT] [--live-sferics-port UDPPORT]\n", argv[0]);
         return 1;
     }
 
@@ -815,6 +824,10 @@ int main(int argc, char** argv) {
     const size_t OUTPUT_BATCH_SIZE = 4096;
     std::vector<int16_t> out_buf(OUTPUT_BATCH_SIZE);
 
+    const float live_scale = (n_live_channels > 0)
+        ? static_cast<float>(args.live_gain_trim) / static_cast<float>(n_live_channels)
+        : 0.0f;
+
     auto load_window_started_at = std::chrono::steady_clock::now();
     double busy_seconds_in_window = 0.0;
     double audio_seconds_in_window = 0.0;
@@ -883,12 +896,14 @@ int main(int argc, char** argv) {
                 live_mix_f += carrier.mod_register[i] * new_cos;
             }
             if (n_live_channels > 0) {
-                int32_t live_mix = static_cast<int32_t>(live_mix_f / static_cast<float>(n_live_channels));
+                int32_t live_mix = static_cast<int32_t>(live_mix_f * live_scale);
                 mixed += live_mix >> args.live_gain_shift;
 
                 if (sferics.env > 0.0f) {
+                    // live_scale = live_gain_trim / n_live_channels: Blitzpegel folgt dem
+                    // Pegel der Sender (fl2k_live_gain_shift), bei trim = 1 wie bisher
                     float burst = sferics.noise() * sferics.env * sferics.amp * 128.0f
-                                  / static_cast<float>(n_live_channels);
+                                  * live_scale;
                     mixed += static_cast<int32_t>(burst) >> args.live_gain_shift;
                     sferics.step_env();
                 }
