@@ -1,13 +1,19 @@
 ////////////////////////////////////////////////////
 // COHI-Player-Universal
-// V1.2.0, 12.11.2026
+// V1.2.1, 16.11.2026
 // Author: Claus Peter Gallenmiller, cpg-radio@gmx.de
+// Modified by radiolab81:
+//   V1.1.0, 10.11.2026: smiSDR / parlioSDR output with 8 to 14 bit DAC formats
+//   V1.1.1, 11.11.2026: UDP field strength control, sferics / lightning simulation (AMWaveSynth protocol)
+//   V1.2.1, 16.11.2026: real-time pacing of the live output thread (fixes stuttering COHI-Stream audio
+//                       and decoder restarts with smiSDR / parlioSDR, see README 5.5)
 ////////////////////////////////////////////////////
 
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <thread>
 #include <cmath>
 #include <vector>
 #include <string>
@@ -52,6 +58,8 @@ struct Args {
     std::vector<LiveChannelArg> live_channels;
     int live_gain_shift = 2;
     double live_gain_trim = 1.0;
+    int live_control_port = 0;
+    int live_sferics_port = 0;
     int debug_udp_port = 0;
 };
 
@@ -218,6 +226,12 @@ bool parse_args(int argc, char** argv, Args& out) {
                              "0 < F <= 1 liegen\n");
                 return false;
             }
+        } else if (arg == "--live-control-port") {
+            if (i + 1 >= argc) return false;
+            out.live_control_port = std::atoi(argv[++i]);
+        } else if (arg == "--live-sferics-port") {
+            if (i + 1 >= argc) return false;
+            out.live_sferics_port = std::atoi(argv[++i]);
         } else if (arg == "--debug-udp-port") {
             if (i + 1 >= argc) return false;
             out.debug_udp_port = std::atoi(argv[++i]);
@@ -263,6 +277,8 @@ struct LiveChannel {
     float gain = 1.0f;
     float peak_hold = 0.1f;
 
+    double freq_hz = 0.0;
+    std::atomic<float> external_gain{1.0f};
 };
 
 struct LiveCarrierState {
@@ -293,6 +309,154 @@ struct LiveCarrierState {
             cos_val[i] *= correction;
             sin_val[i] *= correction;
         }
+    }
+};
+
+// Steuerport im Protokoll des AMWaveSynth / AMWaveSynthPropagationSimulator:
+// UDP-Datagramm als ASCII-Text "FREQ_HZ:GAIN" (z.B. "603000:0.35"). Der Kanal
+// wird ueber die Traegerfrequenz gefunden (Toleranz < 1 Hz), GAIN skaliert
+// Traeger und Modulation des Senders gemeinsam (1.0 = unveraendert, 0 = aus).
+struct LiveControlArgs {
+    std::vector<LiveChannel>* channels;
+    int port;
+    const char* tool_name;
+};
+
+void* live_control_receiver(void* arg) {
+    LiveControlArgs* ca = static_cast<LiveControlArgs*>(arg);
+    int sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock < 0) {
+        std::fprintf(stderr, "%s: Steuerport %d: Socket konnte nicht angelegt werden\n",
+                     ca->tool_name, ca->port);
+        return nullptr;
+    }
+    int reuse = 1;
+    setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
+    struct sockaddr_in addr;
+    std::memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(static_cast<uint16_t>(ca->port));
+    addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    if (bind(sock, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) != 0) {
+        std::fprintf(stderr, "%s: Steuerport UDP %d: bind() fehlgeschlagen - "
+                     "Sendersteuerung (Feldstaerke) nicht verfuegbar\n", ca->tool_name, ca->port);
+        close(sock);
+        return nullptr;
+    }
+    std::fprintf(stderr, "%s: Steuerport UDP %d bereit (Format FREQ_HZ:GAIN)\n",
+                 ca->tool_name, ca->port);
+
+    char buf[256];
+    bool first_message_logged = false;
+    while (true) {
+        ssize_t n = recv(sock, buf, sizeof(buf) - 1, 0);
+        if (n <= 0) {
+            usleep(1000);
+            continue;
+        }
+        buf[n] = '\0';
+        double freq = 0.0, gain = 0.0;
+        if (std::sscanf(buf, "%lf:%lf", &freq, &gain) != 2) continue;
+        if (!std::isfinite(gain)) continue;
+        if (gain < 0.0) gain = 0.0;
+        for (LiveChannel& ch : *ca->channels) {
+            if (std::fabs(ch.freq_hz - freq) < 1.0) {
+                ch.external_gain.store(static_cast<float>(gain), std::memory_order_relaxed);
+                if (!first_message_logged) {
+                    std::fprintf(stderr, "%s: erster Steuerbefehl: %.0f Hz -> Gain %.3f\n",
+                                 ca->tool_name, ch.freq_hz, gain);
+                    first_message_logged = true;
+                }
+                break;
+            }
+        }
+    }
+    return nullptr;
+}
+
+// Sferics / Blitzsimulation im Protokoll des AMWaveSynth: UDP-Datagramm
+// "AMPLITUDE:DAUER_MS" (z.B. "800:12.5"). Ein Blitz ist ein Rauschburst mit
+// exponentiell abklingender Huellkurve (Abfall auf 1 % nach DAUER_MS). Die
+// Amplitude ist wie im Original relativ zum Traeger (AMPLITUDE/128 = Spitzenwert
+// des Rauschens im Verhaeltnis zu einem Traeger mit Gain 1.0).
+std::atomic<float> g_sferics_decay{0.0f};
+std::atomic<float> g_sferics_amp{0.0f};   // wird zuletzt geschrieben = "Go"-Signal
+
+struct SfericsArgs {
+    int port;
+    double rate;
+    const char* tool_name;
+};
+
+void* sferics_receiver(void* arg) {
+    SfericsArgs* sa = static_cast<SfericsArgs*>(arg);
+    int sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock < 0) {
+        std::fprintf(stderr, "%s: Sferics-Port %d: Socket konnte nicht angelegt werden\n",
+                     sa->tool_name, sa->port);
+        return nullptr;
+    }
+    int reuse = 1;
+    setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
+    struct sockaddr_in addr;
+    std::memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(static_cast<uint16_t>(sa->port));
+    addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    if (bind(sock, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) != 0) {
+        std::fprintf(stderr, "%s: Sferics-Port UDP %d: bind() fehlgeschlagen - "
+                     "Blitzsimulation nicht verfuegbar\n", sa->tool_name, sa->port);
+        close(sock);
+        return nullptr;
+    }
+    std::fprintf(stderr, "%s: Sferics-Port UDP %d bereit (Format AMPLITUDE:DAUER_MS)\n",
+                 sa->tool_name, sa->port);
+
+    char buf[256];
+    while (true) {
+        ssize_t n = recv(sock, buf, sizeof(buf) - 1, 0);
+        if (n <= 0) {
+            usleep(1000);
+            continue;
+        }
+        buf[n] = '\0';
+        double amp = 0.0, decay_ms = 0.0;
+        if (std::sscanf(buf, "%lf:%lf", &amp, &decay_ms) != 2) continue;
+        if (!std::isfinite(amp) || !std::isfinite(decay_ms) || amp <= 0.0 || decay_ms < 0.0) continue;
+        double total_samples = (decay_ms / 1000.0) * sa->rate;
+        float decay = static_cast<float>(std::exp(-4.60517 / (total_samples + 1.0)));
+        g_sferics_decay.store(decay, std::memory_order_relaxed);
+        g_sferics_amp.store(static_cast<float>(amp), std::memory_order_release);
+    }
+    return nullptr;
+}
+
+struct SfericsState {
+    float env = 0.0f;
+    float amp = 0.0f;
+    float decay = 0.0f;
+    uint32_t prng = 2463534242u;
+
+    // einmal pro Batch aufrufen: neuen Blitz uebernehmen
+    void poll() {
+        float trig = g_sferics_amp.load(std::memory_order_acquire);
+        if (trig > 0.0f) {
+            decay = g_sferics_decay.load(std::memory_order_relaxed);
+            amp = trig;
+            env = 1.0f;
+            g_sferics_amp.store(0.0f, std::memory_order_relaxed);
+        }
+    }
+    // Rauschwert -1..1 (Xorshift32)
+    float noise() {
+        prng ^= prng << 13;
+        prng ^= prng >> 17;
+        prng ^= prng << 5;
+        return (static_cast<float>(prng & 0xFFFF) - 32768.0f) * (1.0f / 32768.0f);
+    }
+    void step_env() {
+        env *= decay;
+        if (env < 3e-4f) env = 0.0f;
     }
 };
 
@@ -371,6 +535,7 @@ LiveSetupResult setup_live_channels(const std::vector<LiveChannelArg>& specs,
         ch.ring.resize(LiveChannel::RING_SIZE);
         ch.udp_port = prepared[i].spec.udp_port;
         ch.sock = prepared[i].sock;
+        ch.freq_hz = prepared[i].spec.freq_hz;
         ch.samples_per_audio_sample = target_rate / prepared[i].spec.audio_rate_hz;
 
         result.carrier.set_frequency(i, prepared[i].spec.freq_hz, target_rate);
@@ -492,7 +657,7 @@ int main(int argc, char** argv) {
             "Verwendung: %s --sample-rate HZ --center-freq HZ --target-rate HZ "
             "[--output-shift N] [--output-bits 8|10|12|14] [--fir-taps N] "
             "[--live-channel PORT:FREQ:AUDIORATE ...] [--live-gain-shift N] "
-            "[--live-gain-trim F]\n", argv[0]);
+            "[--live-gain-trim F] [--live-control-port UDPPORT] [--live-sferics-port UDPPORT]\n", argv[0]);
         return 1;
     }
 
@@ -637,6 +802,21 @@ int main(int argc, char** argv) {
     LiveCarrierState& carrier = live_setup.carrier;
     const size_t n_live_channels = live_channels.size();
 
+    LiveControlArgs live_control_args{&live_channels, args.live_control_port, "cohi_native_upconverter"};
+    if (args.live_control_port > 0 && n_live_channels > 0) {
+        pthread_t control_tid;
+        pthread_create(&control_tid, nullptr, live_control_receiver, &live_control_args);
+        pthread_detach(control_tid);
+    }
+
+    SfericsArgs sferics_args{args.live_sferics_port, args.target_rate, "cohi_native_upconverter"};
+    if (args.live_sferics_port > 0 && n_live_channels > 0) {
+        pthread_t sferics_tid;
+        pthread_create(&sferics_tid, nullptr, sferics_receiver, &sferics_args);
+        pthread_detach(sferics_tid);
+    }
+    SfericsState sferics;
+
     const size_t OUTPUT_BATCH_SIZE = 4096;
     std::vector<int16_t> out_buf(OUTPUT_BATCH_SIZE);
 
@@ -651,8 +831,32 @@ int main(int argc, char** argv) {
     uint64_t wav_ring_empty_count = 0;
     constexpr double LOAD_LOG_INTERVAL_S = 10.0;
 
+    // --- ECHTZEIT-PACING des Ausgabe-Threads ---------------------------------
+    // Die Live-Kanaele (UDP-Audio der Decoder) liefern ihre Samples in Echtzeit,
+    // der Ausgabe-Thread zieht sie aber im Takt seines eigenen Ausgangs. Ohne
+    // Uhr laeuft er nur so schnell, wie die Senke (stdout -> Pipe -> TCP) Daten
+    // annimmt: bei fl2k_tcp ist das exakt Echtzeit, da der Fl2k DAC per USB auch 
+    // bei fl2k_tcp genau den Speed vorgibt (Senke bremst);
+    // bei smiSDR/parlioSDR nimmt die Kette (Socket-/Pi-Puffer) Daten schneller als
+    // Echtzeit an -> Ringe laufen leer ("hungrig"), Audio stockt.
+    // Der Ausgabe-Thread ist hier selbst die Zeitbasis: ein Batch darf hoechstens
+    // PACE_LEAD_S vor der Echtzeit liegen. Faellt er laenger als PACE_MAX_BEHIND_S
+    // zurueck (Senke blockierte), wird die Uhr neu aufgesetzt statt im Burst
+    // aufzuholen (ein Burst wuerde die Live-Ringe sofort wieder leersaugen).
+    constexpr double PACE_LEAD_S = 0.040;
+    constexpr double PACE_MAX_BEHIND_S = 0.100;
+    const auto pace_batch_duration = std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+        std::chrono::duration<double>(static_cast<double>(OUTPUT_BATCH_SIZE) / args.target_rate));
+    const auto pace_lead = std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+        std::chrono::duration<double>(PACE_LEAD_S));
+    const auto pace_max_behind = std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+        std::chrono::duration<double>(PACE_MAX_BEHIND_S));
+    auto pace_deadline = std::chrono::steady_clock::now();
+    // --------------------------------------------------------------------------
+
     while (true) {
         auto batch_started_at = std::chrono::steady_clock::now();
+        sferics.poll();
 
         for (size_t out_idx = 0; out_idx < OUTPUT_BATCH_SIZE; ++out_idx) {
             int32_t mixed = 0;
@@ -694,8 +898,9 @@ int main(int argc, char** argv) {
                 if (ch.gain > 8.0f) ch.gain = 8.0f;
                 if (ch.gain < 0.1f) ch.gain = 0.1f;
 
-                int32_t total_gain_int = static_cast<int32_t>(ch.gain * 64.0f);
-                int32_t carrier_base_int = 16384;
+                float ext_gain = ch.external_gain.load(std::memory_order_relaxed);
+                int32_t total_gain_int = static_cast<int32_t>(ch.gain * ext_gain * 64.0f);
+                int32_t carrier_base_int = static_cast<int32_t>(16384.0f * ext_gain);
                 carrier.mod_register[i] = static_cast<float>(carrier_base_int + raw * total_gain_int);
             }
 
@@ -712,6 +917,15 @@ int main(int argc, char** argv) {
             if (n_live_channels > 0) {
                 int32_t live_mix = static_cast<int32_t>(live_mix_f * live_scale);
                 mixed += live_mix >> args.live_gain_shift;
+
+                if (sferics.env > 0.0f) {
+                    // live_scale = live_gain_trim / n_live_channels: Blitzpegel folgt dem
+                    // Pegel der Sender (fl2k_live_gain_shift), bei trim = 1 wie bisher
+                    float burst = sferics.noise() * sferics.env * sferics.amp * 128.0f
+                                  * live_scale;
+                    mixed += static_cast<int32_t>(burst) >> args.live_gain_shift;
+                    sferics.step_env();
+                }
             }
 
             out_buf[out_idx] = out_stage.quantize(mixed);
@@ -723,6 +937,17 @@ int main(int argc, char** argv) {
 
         out_stage.emit(out_buf.data(), OUTPUT_BATCH_SIZE, debug_sender, out_tmp);
         std::fflush(stdout);
+
+        // Pacing: Echtzeit-Deadline um einen Batch weiterschieben und ggf. warten
+        pace_deadline += pace_batch_duration;
+        {
+            auto now = std::chrono::steady_clock::now();
+            if (now - pace_deadline > pace_max_behind) {
+                pace_deadline = now;                       // nicht im Burst aufholen
+            } else if (pace_deadline - pace_lead > now) {
+                std::this_thread::sleep_until(pace_deadline - pace_lead);
+            }
+        }
 
         auto batch_ended_at = std::chrono::steady_clock::now();
         double batch_compute_seconds =

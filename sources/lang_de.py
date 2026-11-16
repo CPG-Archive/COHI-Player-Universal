@@ -2,6 +2,9 @@
 # COHI-Player-Universal
 # V1.2.0, 12.11.2026
 # Author: Claus Peter Gallenmiller, cpg-radio@gmx.de
+# Modified by radiolab81:
+#   V1.1.0, 10.11.2026: smiSDR / parlioSDR output with 8 to 14 bit DAC formats
+#   V1.1.1, 11.11.2026: UDP field strength control, sferics / lightning simulation (AMWaveSynth protocol)
 ####################################################
 
 TEXTS = {
