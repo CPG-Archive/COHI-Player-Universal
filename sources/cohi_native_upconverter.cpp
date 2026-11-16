@@ -1,16 +1,19 @@
 ////////////////////////////////////////////////////
 // COHI-Player-Universal
-// V1.2.0, 12.11.2026
+// V1.2.1, 16.11.2026
 // Author: Claus Peter Gallenmiller, cpg-radio@gmx.de
 // Modified by radiolab81:
 //   V1.1.0, 10.11.2026: smiSDR / parlioSDR output with 8 to 14 bit DAC formats
 //   V1.1.1, 11.11.2026: UDP field strength control, sferics / lightning simulation (AMWaveSynth protocol)
+//   V1.2.1, 16.11.2026: real-time pacing of the live output thread (fixes stuttering COHI-Stream audio
+//                       and decoder restarts with smiSDR / parlioSDR, see README 5.5)
 ////////////////////////////////////////////////////
 
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <thread>
 #include <cmath>
 #include <vector>
 #include <string>
@@ -835,6 +838,29 @@ int main(int argc, char** argv) {
     uint64_t wav_ring_empty_count = 0;
     constexpr double LOAD_LOG_INTERVAL_S = 10.0;
 
+    // --- ECHTZEIT-PACING des Ausgabe-Threads ---------------------------------
+    // Die Live-Kanaele (UDP-Audio der Decoder) liefern ihre Samples in Echtzeit,
+    // der Ausgabe-Thread zieht sie aber im Takt seines eigenen Ausgangs. Ohne
+    // Uhr laeuft er nur so schnell, wie die Senke (stdout -> Pipe -> TCP) Daten
+    // annimmt: bei fl2k_tcp ist das exakt Echtzeit, da der Fl2k DAC per USB auch 
+    // bei fl2k_tcp genau den Speed vorgibt (Senke bremst);
+    // bei smiSDR/parlioSDR nimmt die Kette (Socket-/Pi-Puffer) Daten schneller als
+    // Echtzeit an -> Ringe laufen leer ("hungrig"), Audio stockt.
+    // Der Ausgabe-Thread ist hier selbst die Zeitbasis: ein Batch darf hoechstens
+    // PACE_LEAD_S vor der Echtzeit liegen. Faellt er laenger als PACE_MAX_BEHIND_S
+    // zurueck (Senke blockierte), wird die Uhr neu aufgesetzt statt im Burst
+    // aufzuholen (ein Burst wuerde die Live-Ringe sofort wieder leersaugen).
+    constexpr double PACE_LEAD_S = 0.040;
+    constexpr double PACE_MAX_BEHIND_S = 0.100;
+    const auto pace_batch_duration = std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+        std::chrono::duration<double>(static_cast<double>(OUTPUT_BATCH_SIZE) / args.target_rate));
+    const auto pace_lead = std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+        std::chrono::duration<double>(PACE_LEAD_S));
+    const auto pace_max_behind = std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+        std::chrono::duration<double>(PACE_MAX_BEHIND_S));
+    auto pace_deadline = std::chrono::steady_clock::now();
+    // --------------------------------------------------------------------------
+
     while (true) {
         auto batch_started_at = std::chrono::steady_clock::now();
         sferics.poll();
@@ -918,6 +944,17 @@ int main(int argc, char** argv) {
 
         out_stage.emit(out_buf.data(), OUTPUT_BATCH_SIZE, debug_sender, out_tmp);
         std::fflush(stdout);
+
+        // Pacing: Echtzeit-Deadline um einen Batch weiterschieben und ggf. warten
+        pace_deadline += pace_batch_duration;
+        {
+            auto now = std::chrono::steady_clock::now();
+            if (now - pace_deadline > pace_max_behind) {
+                pace_deadline = now;                       // nicht im Burst aufholen
+            } else if (pace_deadline - pace_lead > now) {
+                std::this_thread::sleep_until(pace_deadline - pace_lead);
+            }
+        }
 
         auto batch_ended_at = std::chrono::steady_clock::now();
         double batch_compute_seconds =
