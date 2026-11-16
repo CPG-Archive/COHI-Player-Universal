@@ -1,12 +1,13 @@
 # COHI-Player-Universal
 
-**Version 1.2.0** · License: [GPL-3.0](LICENSE)
+**Version 1.2.1** · License: [GPL-3.0](LICENSE)
 
 Original author: Claus Peter Gallenmiller (v1.0.0, [CPG-Archive/COHI-Player-Universal](https://github.com/CPG-Archive/COHI-Player-Universal)).
 Extensions by radiolab81:
 - **v1.1.0** (10.11.2026): output to smiSDR / parlioSDR with variable DAC widths of 8 to 14 bit
 - **v1.1.1** (11.11.2026): remote control of the station field strength and sferics / lightning simulation (AMWaveSynth protocol), coupling to the AMWaveSynthPropagationSimulator
 - **v1.2.0** (12.11.2026): the remote control, sferics and smiSDR / parlioSDR extensions were adopted into the main line; new in 1.2: extended M3U station lists and level adjustment of the live part (`fl2k_live_gain_shift`, modulation depth)
+- **v1.2.1** (16.11.2026): real-time pacing of the live output thread in `cohi_native_upconverter`; fixes stuttering COHI-Stream audio (starved live channels, endless decoder restarts) with smiSDR / parlioSDR
 
 COHI-Player turns a Raspberry Pi or PC into a small "broadcast station" for vintage radios. It replays recordings of complete AM broadcast bands and/or current internet radio streams on several freely selectable carrier frequencies at the same time, so that an old receiver can be tuned across the dial just like in its day. 
 
@@ -418,6 +419,8 @@ With `hwconfig: smisdr` COHI-Player feeds a [smiSDR / parlioSDR](https://github.
 2. Then it opens one connection to the **data port** and streams the RF samples in real time.
 
 The digital upconversion is done by the same C++ tool as for FL2K (`cohi_native_upconverter`, compile with `make`), which is started with a target rate of exactly 5, 10 or 12.5 MHz. Without the new option `--output-bits` the tool behaves exactly as before (8 bit, byte-identical output, also for FL2K); only for `smisdr_format: 10`, `12` and `14` the player adds `--output-bits 10|12|14`. All three program modes (COHI-Player, COHI-Stream, COHI-Player+Stream) are supported; on Windows only COHI-Player.
+
+**Real-time pacing (COHI-Stream):** the live channels (decoder audio via UDP) arrive in real time, but the upconverter's output thread pulls them at the speed of its own output. With `fl2k_tcp` the receiver throttles the stream to exactly real time; with smiSDR / parlioSDR the socket and device buffers accept data faster than real time, so the live channels can ran empty ("hungry" in the log), the audio stuttered and the decoder watchdog restarted the decoders over and over. Since v1.2.1 the live output thread of `cohi_native_upconverter` paces itself: it may run at most 40 ms ahead of real time and, if it falls more than 100 ms behind (receiver blocked), restarts its clock instead of catching up in a burst. The constants `PACE_LEAD_S` and `PACE_MAX_BEHIND_S` are in the main loop of `cohi_native_upconverter.cpp`. This only affects the live mode; WAV playback is paced by the player as before. After updating, recompile with `make`.
 
 Which rate is possible depends on the recording: the highest signal frequency (centre frequency + sample rate / 2) must lie below 95 % of the Nyquist frequency of the output rate, i.e. below approx. 2.4 MHz at 5 MSps, 4.75 MHz at 10 MSps and 5.9 MHz at 12.5 MSps. Longwave and mediumwave recordings need only 5 MSps. If the recording does not fit the configured rate, an error is shown; `smisdr_sample_rate: auto` chooses the rate automatically.
 
