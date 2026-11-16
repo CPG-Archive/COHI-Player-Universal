@@ -2,6 +2,8 @@
 # COHI-Player-Universal
 # V1.2.0, 12.11.2026
 # Author: Claus Peter Gallenmiller, cpg-radio@gmx.de
+# Modified by radiolab81:
+#   V1.1.1, 11.11.2026: UDP field strength control, sferics / lightning simulation (AMWaveSynth protocol)
 ####################################################
 
 import logging
@@ -22,6 +24,9 @@ DEFAULT_PROGRAM_VARIANT = "COHI-Player"
 
 VALID_DISPLAY_VARIANTS = (1, 2)
 DEFAULT_DISPLAY_VARIANT = 1
+
+DEFAULT_LIVE_CONTROL_PORT = 8888
+DEFAULT_LIVE_SFERICS_PORT = 8889
 
 
 class ConfigError(Exception):
@@ -53,12 +58,15 @@ class PlayerConfig:
         self.ffmpeg_tool_path = None
         self.fl2k_upconverter = "ffmpeg"
         self.fl2k_cpp_upconverter_path = None
+        self.fl2k_live_gain_shift = 1.5
         self.program_variant = "COHI-Player"
         self.display_variant = 1
         self.debug_spectrum_window = False
         self.debug_timedomain_window = False
         self.live_enabled = False
         self.live_stations_file = None
+        self.live_control_port = DEFAULT_LIVE_CONTROL_PORT
+        self.live_sferics_port = DEFAULT_LIVE_SFERICS_PORT
         self.stemlab_live_lo_freq = None
         self.stemlab_live_sample_rate = None
         self.smisdr_address = "127.0.0.1"
@@ -128,6 +136,19 @@ class PlayerConfig:
             raise ConfigError(tr("{key} in {file} must not be negative").format(
                 key="agc_interval", file=self.CONFIG_FILE))
 
+        try:
+            live_gain_raw = self._raw_config.get("fl2k_live_gain_shift", 1.5)
+            if isinstance(live_gain_raw, str):
+                live_gain_raw = live_gain_raw.replace(",", ".")
+            self.fl2k_live_gain_shift = float(live_gain_raw)
+        except (TypeError, ValueError) as exc:
+            raise ConfigError(tr("invalid value for {key} in {file}: {error}").format(
+                key="fl2k_live_gain_shift", file=self.CONFIG_FILE, error=exc)) from exc
+        if not 0 <= self.fl2k_live_gain_shift <= 6:
+            raise ConfigError(tr("invalid value for {key} in {file}: '{value}' (valid: {valid})").format(
+                key="fl2k_live_gain_shift", file=self.CONFIG_FILE,
+                value=self.fl2k_live_gain_shift, valid="0 ... 6"))
+
         self.program_variant = self._raw_config.get("program_variant", DEFAULT_PROGRAM_VARIANT)
         if self.program_variant not in VALID_PROGRAM_VARIANTS:
             raise ConfigError(tr("invalid value for {key} in {file}: '{value}' (valid: {valid})").format(
@@ -161,6 +182,22 @@ class PlayerConfig:
         self.stemlab_live_upconverter_path = self._raw_config.get("stemlab_live_upconverter_path")
         self.live_enabled = self.program_variant in ("COHI-Stream", "COHI-Player+Stream")
         self.live_stations_file = self._raw_config.get("live_stations_file")
+        try:
+            self.live_control_port = int(self._raw_config.get(
+                "live_control_port", DEFAULT_LIVE_CONTROL_PORT))
+            if not 0 <= self.live_control_port <= 65535:
+                raise ValueError("port out of range 0..65535")
+        except (TypeError, ValueError) as exc:
+            raise ConfigError(tr("invalid value for {key} in {file}: {error}").format(
+                key="live_control_port", file=self.CONFIG_FILE, error=exc)) from exc
+        try:
+            self.live_sferics_port = int(self._raw_config.get(
+                "live_sferics_port", DEFAULT_LIVE_SFERICS_PORT))
+            if not 0 <= self.live_sferics_port <= 65535:
+                raise ValueError("port out of range 0..65535")
+        except (TypeError, ValueError) as exc:
+            raise ConfigError(tr("invalid value for {key} in {file}: {error}").format(
+                key="live_sferics_port", file=self.CONFIG_FILE, error=exc)) from exc
 
         self.stemlab_live_lo_freq = self._raw_config.get("stemlab_live_lo_freq")
         self.stemlab_live_sample_rate = self._raw_config.get("stemlab_live_sample_rate")

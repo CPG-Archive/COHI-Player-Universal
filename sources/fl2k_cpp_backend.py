@@ -2,6 +2,8 @@
 # COHI-Player-Universal
 # V1.2.0, 12.11.2026
 # Author: Claus Peter Gallenmiller, cpg-radio@gmx.de
+# Modified by radiolab81:
+#   V1.1.1, 11.11.2026: UDP field strength control, sferics / lightning simulation (AMWaveSynth protocol)
 ####################################################
 
 import logging
@@ -55,18 +57,22 @@ class Fl2kCppBackend(Fl2kBackend):
     default_gain = 0.4
 
     def __init__(self, fl2k_tool_path=None, upconverter_tool_path=None,
-                 live_enabled=False, live_stations_file=None,
-                 live_gain_shift=DEFAULT_LIVE_GAIN_SHIFT, parent=None):
+                 live_enabled=False, live_stations_file=None, live_control_port=0,
+                 live_sferics_port=0, live_gain_shift=DEFAULT_LIVE_GAIN_SHIFT, parent=None):
         super().__init__(fl2k_tool_path=fl2k_tool_path, ffmpeg_tool_path=None, parent=parent)
         self.live_gain_shift, self.live_gain_trim = split_live_gain_shift(live_gain_shift)
         self._configured_live_gain_shift = max(0.0, float(live_gain_shift))
         self.upconverter_tool_path = upconverter_tool_path or DEFAULT_UPCONVERTER_PATH
+        self.live_gain_shift, self.live_gain_trim = split_live_gain_shift(live_gain_shift)
+        self._configured_live_gain_shift = max(0.0, float(live_gain_shift))
         self._upconverter_process = None
         self._upconverter_health_stop_event = None
         self.debug_udp_port = 0
         self.target_rate = None
         self.live_enabled = live_enabled
         self.live_stations_file = live_stations_file
+        self.live_control_port = int(live_control_port or 0)
+        self.live_sferics_port = int(live_sferics_port or 0)
         self._live_stations = []
         self._port_starved_streak = {}
 
@@ -173,6 +179,21 @@ class Fl2kCppBackend(Fl2kBackend):
             if_hz=center_freq, rate=target_rate))
         return True
 
+    def _effective_live_gain(self):
+        depth = live_streams.station_list_mod_depth(self._live_stations)
+        if depth is None:
+            return self.live_gain_shift, self.live_gain_trim
+        wanted = self._configured_live_gain_shift - math.log2(
+            depth / live_streams.REFERENCE_MODULATION_DEPTH)
+        shift_value = min(6.0, max(0.0, wanted))
+        if abs(shift_value - wanted) > 1e-9:
+            logger.warning("fl2k (cpp): modulation depth %.2f from the station list is outside "
+                           "the adjustable range - level limited (fl2k_live_gain_shift %.2f)",
+                           depth, shift_value)
+        logger.info("fl2k (cpp): modulation depth %.2f from the station list -> "
+                    "fl2k_live_gain_shift %.2f", depth, shift_value)
+        return split_live_gain_shift(shift_value)
+
     def reload_live_stations(self, stations):
         if self._current_params is None:
             logger.warning("fl2k (cpp): reload_live_stations() called before the first "
@@ -249,6 +270,10 @@ class Fl2kCppBackend(Fl2kBackend):
             command += ["--live-gain-shift", str(gain_shift)]
             if gain_trim < 1.0:
                 command += ["--live-gain-trim", f"{gain_trim:.6f}"]
+            if self.live_control_port > 0:
+                command += ["--live-control-port", str(self.live_control_port)]
+            if self.live_sferics_port > 0:
+                command += ["--live-sferics-port", str(self.live_sferics_port)]
         if self.debug_udp_port:
             command += ["--debug-udp-port", str(self.debug_udp_port)]
         logger.info("fl2k (cpp): cohi_native_upconverter command: %s", " ".join(command))
