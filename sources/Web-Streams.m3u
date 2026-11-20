@@ -1,0 +1,130 @@
+#EXTM3U
+
+#EXTPARAM_LOFREQ: 1125
+#EXTPARAM_SAMPLERATE: 1250
+#EXTPARAM_BW: 7
+#EXTPARAM_MODDEPTH: 0.8
+
+#PLAYLIST: BR24 (Nachrichten)
+#EXTGRP: 576.0 
+https://dispatcher.rndfnk.com/br/br24/live/mp3/mid
+
+#PLAYLIST: UK 1940s Radio Station
+#EXTGRP: 603.0 
+http://solid2.streamupsolutions.com:24929/stream
+
+#PLAYLIST: 1920s Radio Network
+#EXTGRP: 630.0 
+https://cast3.my-control-panel.com/proxy/brian129/stream
+
+#PLAYLIST: Radio Dismuke
+#EXTGRP: 657.0 
+http://74.208.228.126:8020/;stream.mp3
+
+#PLAYLIST: KCEA
+#EXTGRP: 684.0 
+http://streaming.rubinbroadcasting.com/kcea
+
+#PLAYLIST: ON 50s
+#EXTGRP: 711.0 
+https://0n-50s.radionetz.de/0n-50s.mp3
+
+#PLAYLIST: Schwany Souvenir 2
+#EXTGRP: 738.0 
+https://souvenir2.spcast.eu/stream
+
+#PLAYLIST: WKHR
+#EXTGRP: 765.0 
+http://ice64.securenetsystems.net/WKHR
+
+#PLAYLIST: Cladrite Radio
+#EXTGRP: 792.0 
+https://streaming.live365.com/a43564
+
+#PLAYLIST: Radio Montmartre
+#EXTGRP: 819.0 
+http://montmartre.ice.infomaniak.ch/montmartre.mp3
+
+#PLAYLIST: Radio Minerva
+#EXTGRP: 846.0 
+http://streaming.radiominerva.be/minerva
+
+#PLAYLIST: Swissradio Jazz&Swing
+#EXTGRP: 873.0 
+http://relay.publicdomainproject.org/jazz_swing.mp3
+
+#PLAYLIST: m4d 1940's
+#EXTGRP: 900.0 
+https://s2.radio.co/sf0e4f0fe8/listen
+
+#PLAYLIST: Cleansing 50's
+#EXTGRP: 927.0 
+https://hemnos.cdnstream.com/1464_128?playerid=esPlayer&cb=870571.mp3
+
+#PLAYLIST: Radio Nostalgia Amsterdam
+#EXTGRP: 954.0 
+https://cast1.torontocast.com:1620/dlytnbko/1/winamp.m3u
+
+#PLAYLIST: Memory Radio 1
+#EXTGRP: 981.0 
+https://www.memoryradio.de:4400/?sid=1&type=http&nocache=13659
+
+#PLAYLIST: Memory Radio 2
+#EXTGRP: 1008.0 
+https://www.memoryradio.de:4420/?sid=1&type=http&nocache=13159
+
+#PLAYLIST: WNBJ
+#EXTGRP: 1035.0 
+https://wbnj.radioca.st/stream
+
+#PLAYLIST: Megaton Cafe Radio
+#EXTGRP: 1062.0 
+http://us2.internet-radio.com:8443/stream
+
+#PLAYLIST: Radio Twente Gold
+#EXTGRP: 1089.0 
+https://c18.radioboss.fm/stream/403
+
+#PLAYLIST: France Musique La Jazz
+#EXTGRP: 1116.0 
+http://icecast.radiofrance.fr/francemusiquelajazz-hifi.aac
+
+#PLAYLIST: PhonotoneClassic
+#EXTGRP: 1143.0 
+https://24293.live.streamtheworld.com/SAM09AAC159_SC
+
+#PLAYLIST: 1920's Greatest Hits
+#EXTGRP: 1170.0 
+https://drive.uber.radio/uber/boomerang1920s/icecast.audio?ua=Get%20Me%20Radio!%20-%20Website
+
+#PLAYLIST: 1930's Greatest Hits
+#EXTGRP: 1197.0 
+https://drive.uber.radio/uber/boomerang1930s/icecast.audio?ua=Get%20Me%20Radio!%20-%20Website
+
+#PLAYLIST: 1940's Greatest Hits
+#EXTGRP: 1224.0 
+https://drive.uber.radio/uber/boomerang1940s/icecast.audio?ua=Get%20Me%20Radio!%20-%20Website
+
+#PLAYLIST: Positively 1920's
+#EXTGRP: 1251.0 
+https://streaming.positivity.radio/pr/1920/icecast.audio?ua=Get%20Me%20Radio!%20-%20Website
+
+#PLAYLIST: Positively 1930's
+#EXTGRP: 1278.0 
+https://streaming.positivity.radio/pr/1930/icecast.audio?ua=Get%20Me%20Radio!%20-%20Website
+
+#PLAYLIST: Positively 1940's
+#EXTGRP: 1305.0 
+https://streaming.positivity.radio/pr/1940/icecast.audio?ua=Get%20Me%20Radio!%20-%20Website
+
+#PLAYLIST: Positively 1950's
+#EXTGRP: 1332.0 
+https://streaming.positivity.radio/pr/1950/icecast.audio?ua=Get%20Me%20Radio!%20-%20Website
+
+#PLAYLIST: Positively 1960's
+#EXTGRP: 1359.0 
+https://streaming.positivity.radio/pr/posi60s/icecast.audio?ua=Get%20Me%20Radio!%20-%20Website
+
+#PLAYLIST: Deutsche GW (DLF)
+#EXTGRP: 1386.0 
+https://st02.sslstream.dlf.de/dlf/02/128/mp3/stream.mp3?aggregator=web

@@ -1,0 +1,110 @@
+#EXTM3U
+
+#EXTPARAM_LOFREQ: 1125
+#EXTPARAM_SAMPLERATE: 1250
+#EXTPARAM_BW: 4.5
+#EXTPARAM_MODDEPTH: 0.8
+
+#PLAYLIST: Beromünster (SRF 1)
+#EXTGRP:556.0
+http://stream.srg-ssr.ch/drs1/mp3_128.m3u
+
+#PLAYLIST: Mühlacker (SWR1)
+#EXTGRP:574.0
+https://liveradio.swr.de/sw282p3/swr1bw/
+
+#PLAYLIST: Wien (ORF Radio Wien)
+#EXTGRP:592.0
+http://orf-live.ors-shoutcast.at/wie-q2a
+
+#PLAYLIST: Brüssel (Radio Twente Gold)
+#EXTGRP:620.0
+https://c18.radioboss.fm/stream/403
+
+#PLAYLIST: Prag (KCEA)
+#EXTGRP:638.0
+http://streaming.rubinbroadcasting.com/kcea
+
+#PLAYLIST: Langenberg (WDR 3)
+#EXTGRP:658.0
+http://wdr-wdr3-live.icecast.wdr.de/wdr/wdr3/live/mp3/128/stream.mp3
+
+#PLAYLIST: Sottens (RTE Gold)
+#EXTGRP:677.0
+http://icecast2.rte.ie/gold
+
+#PLAYLIST: Paris P.T.T. (France Musique La Jazz)
+#EXTGRP:695.0
+http://icecast.radiofrance.fr/francemusiquelajazz-hifi.aac
+
+#PLAYLIST: München (BR24) 
+#EXTGRP:740.0
+https://dispatcher.rndfnk.com/br/br24/live/mp3/mid
+
+#PLAYLIST: Leipzig (MDR SACHSEN)
+#EXTGRP:785.0
+http://mdr-284280-0.cast.mdr.de/mdr/284280/0/mp3/high/stream.mp3
+
+#PLAYLIST: Berlin (rbb Kultur)
+#EXTGRP:841.0
+http://rbbkultur.de/livemp3
+
+#PLAYLIST: London Reg. (WNBJ)
+#EXTGRP:877.0
+https://wbnj.radioca.st/stream
+
+#PLAYLIST: Graz (ORF Radio Steiermark)
+#EXTGRP:886.0
+http://orf-live.ors-shoutcast.at/stm-q2a
+
+#PLAYLIST: Hamburg (NDR 1 Welle Nord)
+#EXTGRP:904.0
+http://icecast.ndr.de/ndr/ndr1wellenord/kiel/mp3/128/stream.mp3
+
+#PLAYLIST: Breslau (MDR SPUTNIK)
+#EXTGRP:950.0
+http://mdr-284330-0.cast.mdr.de/mdr/284330/0/mp3/high/stream.mp3
+
+#PLAYLIST: Königsberg (MDR JUMP)
+#EXTGRP:1031.0
+http://mdr-284320-0.cast.mdr.de/mdr/284320/0/mp3/high/stream.mp3
+
+#PLAYLIST: Toulouse (Radio Dismuke)
+#EXTGRP:913.0
+http://74.208.228.126:8020/;stream.mp3
+
+#PLAYLIST: London (UK 1940s Radio Station)
+#EXTGRP:1149.0
+http://solid2.streamupsolutions.com:24929/stream
+
+#PLAYLIST: Monte Ceneri (SRF 2 Kultur)
+#EXTGRP:1167.0
+http://stream.srg-ssr.ch/drs2/mp3_128.m3u
+
+#PLAYLIST: Frankfurt (hr1 Mittelhessen)
+#EXTGRP:1195.0
+https://dispatcher.rndfnk.com/hr/hr1/mittelhessen/high
+
+#PLAYLIST: Gleiwitz (NDR Info)
+#EXTGRP:1231.0
+http://icecast.ndr.de/ndr/ndrinfo/hamburg/mp3/128/stream.mp3
+
+#PLAYLIST: Süddt. GW (Bayern 2)
+#EXTGRP:1267.0
+https://dispatcher.rndfnk.com/br/br2/live/mp3/mid
+
+#PLAYLIST: Danzig (MDR KULTUR)
+#EXTGRP:1303.0
+http://mdr-284310-0.cast.mdr.de/mdr/284310/0/mp3/high/stream.mp3
+
+#PLAYLIST: Norddt. GW (NDR Info)
+#EXTGRP:1330.0
+http://icecast.ndr.de/ndr/ndrinfo/hamburg/mp3/128/stream.mp3
+
+#PLAYLIST: Internat. GW (SWR4)
+#EXTGRP:1348.0
+https://liveradio.swr.de/sw282p3/swr4bw/
+
+#PLAYLIST: Deutsche GW (DLF)
+#EXTGRP:1465.0
+https://st02.sslstream.dlf.de/dlf/02/128/mp3/stream.mp3?aggregator=web

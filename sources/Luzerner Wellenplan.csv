@@ -1,0 +1,27 @@
+Frequenz;Bandbreite;Programmname;URL
+556.0 kHz;4.5 kHz;Beromünster (SRF 1);http://stream.srg-ssr.ch/drs1/mp3_128.m3u
+574.0 kHz;4.5 kHz;Mühlacker (SWR1);https://liveradio.swr.de/sw282p3/swr1bw/
+592.0 kHz;4.5 kHz;Wien (ORF Radio Wien);http://orf-live.ors-shoutcast.at/wie-q2a
+620.0 kHz;4.5 kHz;Brüssel (Radio Twente Gold);https://c18.radioboss.fm/stream/403
+638.0 kHz;4.5 kHz;Prag (KCEA);http://streaming.rubinbroadcasting.com/kcea
+658.0 kHz;4.5 kHz;Langenberg (WDR 3);http://wdr-wdr3-live.icecast.wdr.de/wdr/wdr3/live/mp3/128/stream.mp3
+677.0 kHz;4.5 kHz;Sottens (RTE Gold);http://icecast2.rte.ie/gold
+695.0 kHz;4.5 kHz;Paris P.T.T. (France Musique La Jazz);http://icecast.radiofrance.fr/francemusiquelajazz-hifi.aac
+740.0 kHz;4.5 kHz;München (BR24);https://dispatcher.rndfnk.com/br/br24/live/mp3/mid
+785.0 kHz;4.5 kHz;Leipzig (MDR SACHSEN);http://mdr-284280-0.cast.mdr.de/mdr/284280/0/mp3/high/stream.mp3
+841.0 kHz;4.5 kHz;Berlin (rbb Kultur);http://rbbkultur.de/livemp3
+877.0 kHz;4.5 kHz;London Reg. (WNBJ);https://wbnj.radioca.st/stream
+886.0 kHz;4.5 kHz;Graz (ORF Radio Steiermark);http://orf-live.ors-shoutcast.at/stm-q2a
+904.0 kHz;4.5 kHz;Hamburg (NDR 1 Welle Nord);http://icecast.ndr.de/ndr/ndr1wellenord/kiel/mp3/128/stream.mp3
+950.0 kHz;4.5 kHz;Breslau (MDR SPUTNIK);http://mdr-284330-0.cast.mdr.de/mdr/284330/0/mp3/high/stream.mp3
+1031.0 kHz;4.5 kHz;Königsberg (MDR JUMP);http://mdr-284320-0.cast.mdr.de/mdr/284320/0/mp3/high/stream.mp3
+1080.0 kHz;4.5 kHz;Radio Dismuke;"http://74.208.228.126:8020/;stream.mp3"
+1149.0 kHz;4.5 kHz;London (UK 1940s Radio Station);http://solid2.streamupsolutions.com:24929/stream
+1167.0 kHz;4.5 kHz;Monte Ceneri (SRF 2 Kultur);http://stream.srg-ssr.ch/drs2/mp3_128.m3u
+1195.0 kHz;4.5 kHz;Frankfurt (hr1 Mittelhessen);https://dispatcher.rndfnk.com/hr/hr1/mittelhessen/high
+1231.0 kHz;4.5 kHz;Gleiwitz (NDR Info);http://icecast.ndr.de/ndr/ndrinfo/hamburg/mp3/128/stream.mp3
+1267.0 kHz;4.5 kHz;Süddt. GW (Bayern 2);https://dispatcher.rndfnk.com/br/br2/live/mp3/mid
+1303.0 kHz;4.5 kHz;Danzig (MDR KULTUR);http://mdr-284310-0.cast.mdr.de/mdr/284310/0/mp3/high/stream.mp3
+1330.0 kHz;4.5 kHz;Norddt. GW (NDR Info);http://icecast.ndr.de/ndr/ndrinfo/hamburg/mp3/128/stream.mp3
+1348.0 kHz;4.5 kHz;Internat. GW (SWR4);https://liveradio.swr.de/sw282p3/swr4bw/
+1465.0 kHz;4.5 kHz;Deutsche GW (DLF);https://st02.sslstream.dlf.de/dlf/02/128/mp3/stream.mp3?aggregator=web
