@@ -1,7 +1,7 @@
 # COHI-Player-Universal
 
 
-**Version 1.2.1** · License: [GPL-3.0](LICENSE)
+**Version 1.2.2** · License: [GPL-3.0](LICENSE)
 
 Original author: Claus Peter Gallenmiller (v1.0.0, [CPG-Archive/COHI-Player-Universal](https://github.com/CPG-Archive/COHI-Player-Universal)).
 Extensions by radiolab81:
@@ -9,6 +9,8 @@ Extensions by radiolab81:
 - **v1.1.1** (11.11.2026): remote control of the station field strength and sferics / lightning simulation (AMWaveSynth protocol), coupling to the AMWaveSynthPropagationSimulator
 - **v1.2.0** (12.11.2026): the remote control, sferics and smiSDR / parlioSDR extensions were adopted into the main line; new in 1.2: extended M3U station lists and level adjustment of the live part (`fl2k_live_gain_shift`, modulation depth)
 - **v1.2.1** (16.11.2026): real-time pacing of the live output thread in `cohi_native_upconverter`; fixes stuttering COHI-Stream audio (starved live channels, endless decoder restarts) with smiSDR / parlioSDR
+
+- **v1.2.2** (20.11.2026, CPG): installer for Linux platform and sample files in m3u format added
 
 COHI-Player turns a Raspberry Pi or PC into a small "broadcast station" for vintage radios. It replays recordings of complete AM broadcast bands and/or current internet radio streams on several freely selectable carrier frequencies at the same time, so that an old receiver can be tuned across the dial just like in its day. 
 
@@ -162,6 +164,102 @@ The number of possible carriers in the above table are only estimations, the rea
 
 There are preconfigured plug&play-ready images availble for Raspberry Pi 4 and Raspberry Pi 5 at the [COHIRADIA webpage]([https://www.cohiradia.org/](https://www.cohiradia.org/de/docs/getting_started/installation/)). These images can be simply copied to a SD card to get a fully working COHIRADIA system.
 
+### Installation with the installer (recommended)
+
+On an existing Raspberry Pi OS or Debian/Ubuntu-based Linux PC (with desktop), the installer `installer/cohi_player_setup.py` does all steps of 4.1 to 4.3 for you. Open a terminal and enter:
+
+```bash
+wget https://raw.githubusercontent.com/CPG-Archive/COHI-Player-Universal/master/installer/cohi_player_setup.py
+python3 cohi_player_setup.py
+```
+
+Start the installer as a normal user, **not** with `sudo` – it asks for administrator rights itself when they are needed. Press Enter to accept the defaults.
+
+The installer speaks German if the system language is German, otherwise English. To choose the language yourself, add `--lang de` or `--lang en`.
+
+**Stage 1 (terminal)** only prepares the installer: it fetches a newer version of the installer from GitHub if there is one, installs PyQt5 (`python3-pyqt5`) for the installer window if it is missing, and opens the window. It asks no questions.
+
+**Stage 2 (window "COHI-Player Setup")** shows two blocks. Select the desired items and click *Install* (or *Update*):
+
+**Block "COHI-Player"** (selected by default; not selected if the installation is already up to date)
+
+- **Version:** compares the installed version with GitHub and shows whether an update is available; the changes since the last installation are listed in the log area
+- **Installation directory** (default `~/COHIRADIA`)
+- **Python packages:**
+  - *system-wide*, as described in 4.1 – recommended for Raspberry Pi (default there)
+  - in an own *virtual environment* `~/COHIRADIA/venv` – recommended for a PC (default there)
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| Program files | always | downloads the repository from GitHub (no `git` needed), installs the missing system packages (`apt`) and the Python packages from `requirements.txt`, copies the content of `sources/` to `~/COHIRADIA/COHI-Player` |
+| Desktop icons | on | icons **COHI-Player**, **Config COHI** and **COHI Update** on the desktop and in the start menu |
+| C++ tools | on | `make clean && make` (see 4.2) |
+| osmo-fl2k driver | off | builds and installs osmo-fl2k (see 4.3) – only needed for the FL2K USB-VGA dongle |
+
+**Block "Optional extensions"**
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| AMWaveSynthPropagationSimulator | off | the independent add-on [AMWaveSynthPropagationSimulator](https://github.com/radiolab81/AMWaveSynthPropagationSimulator) (see below) |
+
+Both programs are independent of each other and may also be installed on two different computers.
+
+At the end the installer offers to start **Config COHI** for the basic settings (see 5.1).
+
+**AMWaveSynthPropagationSimulator** (optional extension, not selected by default) is installed as described in its own README:
+
+- system packages `build-essential cmake git python3-tk python3-gpxpy python3-geopy` and the package manager `uv` (to `/usr/local/bin`)
+- program files to `~/AMWaveSynthPropagationSimulator`, with its own virtual environment `.venv` (Python 3.13, created by `uv`; if the Python 3.13 found has no `tkinter`, `uv` downloads its own Python 3.13)
+- desktop icon **AMWaveSynth Propagation Simulator**
+
+Because of the required screen size it only makes sense on a PC, not on the Raspberry Pi (the installer warns). There is no update function: ticking the option again overwrites an existing installation after a warning – the files of the repository and `.venv` are replaced, own additional files (own scenarios in `tx_sites/`, `app_config.json`) are kept.
+
+After installation the directory looks like this:
+
+```
+~/COHIRADIA/
+├── COHI-Player/            program (content of sources/), config_sdr.yaml, station lists
+├── venv/                   only with "virtual environment"
+├── icons/                  icon for the desktop entries
+├── osmotools/osmo-fl2k/    only with the osmo-fl2k option
+├── cohi_player_setup.py    copy of the installer for later updates
+└── cohi_player_setup.log   log of all installations
+```
+
+**Updating:** double-click the desktop icon **COHI Update**, or enter in a terminal:
+
+```bash
+python3 ~/COHIRADIA/cohi_player_setup.py --update
+```
+
+The update
+
+- shows in the window whether an update is available and lists the changes since the last installation – if nothing has changed, the block *COHI-Player* is not selected,
+- preselects the installation directory and Python variant of the existing installation,
+- updates the installer itself first if the repository contains a newer version of it,
+- installs Python packages that have been added to `requirements.txt`,
+- replaces the program files and removes files that the installer installed earlier but which no longer exist in the repository. Your own files (recordings, logs, compiled programs) are not touched,
+- keeps your own `config_sdr.yaml` and station lists (`Web-Streams*.csv`); if the repository contains a newer version of such a file, it is saved next to it as `<name>.new`.
+
+Then select the desired items in the window (*C++ tools* should be ticked after every update) and click *Update*.
+
+Without a desktop (e.g. via SSH) stage 2 runs in the terminal. Useful command line options:
+
+| Option | Meaning |
+|--------|---------|
+| `--update` | update the existing installation (no questions about directory and Python variant) |
+| `--lang auto` / `de` / `en` | language of the installer: `auto` (default) = German if the system language is German, otherwise English |
+| `--cohi` / `--no-cohi` | install/update COHI-Player (default: yes, unless already up to date) |
+| `--amwave` / `--no-amwave` | install AMWaveSynthPropagationSimulator (default: no) |
+| `--target DIR` | installation directory instead of `~/COHIRADIA` |
+| `--python-env system` / `venv` | Python packages system-wide or in a virtual environment |
+| `--icons` / `--no-icons`, `--make` / `--no-make`, `--fl2k` / `--no-fl2k` | preselect the options |
+| `--yes` | no questions, use the defaults (terminal only) |
+| `--no-gui` | stage 2 in the terminal instead of a window |
+| `--source-zip FILE` | use a downloaded ZIP of the repository instead of downloading it |
+
+### Manual installation
+
 If you are an expert, then you can configure your own system from scratch. In that case please follow the instructions below:
 
 ### 4.1 Raspberry Pi OS
@@ -183,11 +281,7 @@ Python packages:
 pip install -r requirements.txt --break-system-packages
 ```
 
-Optional, only for the debug windows (spectrum/waterfall and waveform, `display_variant: 2`):
-
-```bash
-pip install pyqtgraph --break-system-packages
-```
+This also installs `pyqtgraph`, which is needed for the spectrum/waterfall and waveform windows (`display_variant: 2`).
 
 ### 4.2 Compiling the C++ tools
 
@@ -324,7 +418,7 @@ In COHI-Player+Stream the LO frequency and sample rate are taken from the WAV re
 | `live_stations_file` | Station list for COHI-Stream: a `.csv` or `.m3u` file, see 5.4 |
 | `live_control_port` | UDP port (default `8888`, `0` = off) for remote control of the field strength of each live station, see 5.6 |
 | `live_sferics_port` | UDP port (default `8889`, `0` = off) for the sferics / lightning simulation, see 5.6 |
-| `debug_spectrum_window`, `debug_timedomain_window` | `true` opens additional windows with spectrum/waterfall and waveform of the output signal. Only with `display_variant: 2`; requires `pyqtgraph` |
+| `debug_spectrum_window`, `debug_timedomain_window` | `true` opens additional windows with spectrum/waterfall and waveform of the output signal. Only with `display_variant: 2`; uses `pyqtgraph` (part of `requirements.txt`) |
 
 The debug option is only working at Raspberry Pi OS / Linux.
 
@@ -524,10 +618,16 @@ Note: the values are held in the running upconverter process only. It is restart
 
 ### 6.1 Starting the program
 
+After installation with the installer: double-click the desktop icon **COHI-Player** (basic settings: **Config COHI**).
+
+Manually:
+
 ```bash
 cd ~/cohi-player
 python3 cohi_player_main.py
 ```
+
+(after installation with the installer: `cd ~/COHIRADIA/COHI-Player`; with a virtual environment start it with `~/COHIRADIA/venv/bin/python cohi_player_main.py`)
 
 The program connects to the output hardware (with STEMlab: searches for it on the network if necessary), scans the WAV directories and starts the output. The status line shows the connection state; details are written to `system_log.log`.
 
