@@ -1,7 +1,7 @@
 # COHI-Player-Universal
 
 
-**Version 1.2.2** · License: [GPL-3.0](LICENSE)
+**Version 1.2.3** · License: [GPL-3.0](LICENSE)
 
 Original author: Claus Peter Gallenmiller (v1.0.0, [CPG-Archive/COHI-Player-Universal](https://github.com/CPG-Archive/COHI-Player-Universal)).
 Extensions by radiolab81:
@@ -11,7 +11,9 @@ Extensions by radiolab81:
 - **v1.2.1** (16.11.2026): real-time pacing of the live output thread in `cohi_native_upconverter`; fixes stuttering COHI-Stream audio (starved live channels, endless decoder restarts) with smiSDR / parlioSDR
 
 - **v1.2.2** (20.11.2026, CPG): installer for Linux platform and sample files in m3u format added
+- **v1.2.3** (22.11.2026, RL81): basic support for I/Q baseband streaming with in-band signaling for smiSDR (gateware: FPGA DUC) added 
 
+  
 COHI-Player turns a Raspberry Pi or PC into a small "broadcast station" for vintage radios. It replays recordings of complete AM broadcast bands and/or current internet radio streams on several freely selectable carrier frequencies at the same time, so that an old receiver can be tuned across the dial just like in its day. 
 
 COHI-Player is part of the COHIRADIA project. Detailed information for installation, hardware setup and an archive with many recordings from 2006 on can be found on [COHIRADIA](https://www.cohiradia.org/).
