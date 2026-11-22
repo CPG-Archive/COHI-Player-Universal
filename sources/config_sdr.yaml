@@ -31,6 +31,9 @@ language: en
 #   fl2k    - FL2K USB-to-VGA dongle (osmo-fl2k)
 #   smisdr  - smiSDR / parlioSDR (radiolab81) via TCP/IP, 5 or 12.5 MSps,
 #             see the smiSDR / parlioSDR section below
+#   smisdr_iq - smiSDR / parlioSDR with the DUC gateware (FPGA): only the I/Q
+#             baseband is sent, mixing to the RF carrier is done in the FPGA
+#             (COHI-Player only), see the section "smiSDR / parlioSDR with FPGA DUC"
 hwconfig: fl2k
 
 # Only for hwconfig: stemlab - IP address of the STEMlab.
@@ -174,6 +177,29 @@ smisdr_offset: false
 
 
 # ---------------------------------------------------------------------------
+# smiSDR / parlioSDR with FPGA DUC (only for hwconfig: smisdr_iq)
+# ---------------------------------------------------------------------------
+
+# Uses smisdr_address, smisdr_data_port and smisdr_control_port from the section
+# above (smisdr_sample_rate, smisdr_format and smisdr_offset are NOT used). The
+# player sends the I/Q baseband with its own sample rate plus in-band commands for
+# NCO (centre frequency) and input sample rate; per track "width 16" and
+# "rate <2 x I/Q sample rate in MSps>" go to the control port.
+# smisdr_control_port: 0 = no commands to the device; it must then already be
+# set to 16 bit and to twice the sample rate of the baseband.
+# All program variants are possible:
+#   COHI-Player         baseband of the WAV file (centre frequency / rate from the header)
+#   COHI-Stream         internet stations, LO / rate from stemlab_live_lo_freq and
+#                       stemlab_live_sample_rate (below) or from the station list
+#   COHI-Player+Stream  WAV baseband and stations added up
+# The DUC gateware knows only the I/Q sample rates 250000, 500000 and 1250000 Hz.
+
+# Clock of the DUC gateware in Hz (default 50 MHz = RF up to 25 MHz). Enter the
+# real clock if the gateware runs with a PLL clock (e.g. 250000000).
+smisdr_iq_ref_clock: 50000000
+
+
+# ---------------------------------------------------------------------------
 # COHI-Stream (only for program_variant: COHI-Stream or COHI-Player+Stream)
 # ---------------------------------------------------------------------------
 
@@ -192,7 +218,7 @@ smisdr_offset: false
 #                                 already a full URL / absolute path
 #            #EXTPARAM_LOFREQ     LO frequency in kHz  } stemlab_live_lo_freq /
 #            #EXTPARAM_SAMPLERATE sample rate in kHz   } stemlab_live_sample_rate
-#                                 (only hwconfig: stemlab + COHI-Stream)
+#                                 (only hwconfig: stemlab / smisdr_iq + COHI-Stream)
 #            #EXTPARAM_SILENCE    seconds of silence between two titles
 #            #EXTPARAM_MODDEPTH   modulation depth 0..1 (default 0.8); with
 #                                 FL2K / smisdr the live level changes in
@@ -224,7 +250,7 @@ live_control_port: 8888
 # Test: echo -n "800:12.5" | nc -u -w0 127.0.0.1 8889
 live_sferics_port: 8889
 
-# Only for hwconfig: stemlab together with program_variant: COHI-Stream.
+# Only for hwconfig: stemlab or smisdr_iq together with program_variant: COHI-Stream.
 # The live stations are generated around a centre frequency (LO) and
 # transmitted with the given sample rate. All stations must lie within
 # LO +/- (sample rate / 2). In COHI-Player+Stream both values are taken from
@@ -234,6 +260,8 @@ stemlab_live_lo_freq: 1125000
 # Sample rate in Hz - one of 20000, 50000, 100000, 250000, 500000, 1250000,
 # 2500000. Recommended: 1250000 (covers the whole medium wave band,
 # 526.5 - 1606.5 kHz); 2500000 can cause crackling.
+# With hwconfig: smisdr_iq only 250000, 500000 and 1250000 are possible
+# (the DUC gateware knows only these three rates).
 stemlab_live_sample_rate: 1250000
 
 # Optional path to the C++ tool cohi_stemlab_live_upconverter. Without this

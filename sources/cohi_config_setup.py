@@ -26,6 +26,7 @@ def hwconfig_options():
         ("stemlab", tr("STEMlab (Red Pitaya)")),
         ("fl2k", tr("FL2K (USB VGA dongle as improvised RF transmitter)")),
         ("smisdr", tr("smiSDR / parlioSDR (Raspberry SMI or ESP32-P4 via network, 5 / 12.5 MSps)")),
+        ("smisdr_iq", tr("smiSDR / parlioSDR with FPGA DUC (baseband I/Q, in-band signaling)")),
     ]
 
 
@@ -173,6 +174,12 @@ def main():
         smisdr_hint = tr(
             "NOTE: hwconfig: smisdr - please check smisdr_address, the ports and "
             "smisdr_sample_rate in {file} - this tool does NOT set these values."
+        ).format(file=config_path)
+
+    if new_hwconfig == "smisdr_iq":
+        smisdr_hint = tr(
+            "NOTE: hwconfig: smisdr_iq - please check smisdr_address and the ports in {file} "
+            "- this tool does NOT set these values."
         ).format(file=config_path)
 
     print("\n" + "=" * 64)

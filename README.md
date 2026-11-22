@@ -82,6 +82,7 @@ Combines both: a band recording plus live stream carriers. On the small 3.5" dis
 | `fl2k` | `native` (Python/NumPy) | ✔ | – | – |
 | `fl2k` | `ffmpeg` | ✔ | – | – |
 | `smisdr` | – (always the compiled C++ tool) | ✔ | ✔ | ✔ |
+| `smisdr_iq` | – (upconversion in the FPGA of the device) | ✔ | ✔ | ✔ |
 
 ### 2.5 Realistic propagation: band openings, skywave and thunderstorms
 
@@ -128,7 +129,7 @@ What you get:
 - RF output, one of:
   - **STEMlab 125-14 / Red Pitaya** with the COHI STEMlab firmware image (see 4.4), connected via Ethernet
   - **FL2K USB-to-VGA dongle** (chip FL2000), used with osmo-fl2k
-  - **smiSDR / parlioSDR** ([smisdr](https://github.com/radiolab81/smisdr) / [parliosdr](https://github.com/radiolab81/parliosdr)), connected via Ethernet (see 5.5)
+  - **smiSDR / parlioSDR** ([smisdr](https://github.com/radiolab81/smisdr) / [parliosdr](https://github.com/radiolab81/parliosdr)), connected via Ethernet (see 5.5); with the FPGA DUC gateware in the I/Q baseband mode (`smisdr_iq`, see 5.5.1) for all three program variants
 - Internet connection (only for COHI-Stream / COHI-Player+Stream). It is stronly recommended to use a wired LAN connection to avoid dropouts in the sound signal.
 
 ### 3.2 Operating systems
@@ -370,7 +371,7 @@ Both tools accept the path to a different configuration file as an optional argu
 | Key | Values | Meaning |
 |---|---|---|
 | `language` | `en` / `de` / `auto` | Language of the user interface, see 5.3 |
-| `hwconfig` | `stemlab` / `fl2k` / `smisdr` | Output hardware |
+| `hwconfig` | `stemlab` / `fl2k` / `smisdr` / `smisdr_iq` | Output hardware |
 | `program_variant` | `COHI-Player` / `COHI-Stream` / `COHI-Player+Stream` | Program mode |
 | `display_variant` | `1` / `2` | `1` = 3.5" display (480×320), `2` = 7" or larger |
 | `filename`, `filename2`, `filename3`, … | directory | Directories with the WAV recordings (any number; subdirectories are included, see 2.1) |
@@ -408,6 +409,7 @@ In COHI-Player+Stream the LO frequency and sample rate are taken from the WAV re
 | `smisdr_sample_rate` | Output sample rate in MSps: `5`, `10`, `12.5` or `auto` (the lowest of these rates at which the recording fits) |
 | `smisdr_format` | `8` = 8 bit native (int8), `816` = 8 bit values in 16 bit words (int16, little endian), `10` / `12` / `14` = DAC with 10 / 12 / 14 bit as int16 (little endian, full scale ±511 / ±2047 / ±8191), see 5.5 |
 | `smisdr_offset` | Only with `smisdr_format: 8`: `true` = unsigned 8 bit (DC offset +128), `false` = signed (default) |
+| `smisdr_iq_ref_clock` | Only for `hwconfig: smisdr_iq`: clock of the DUC gateware in Hz (default `50000000`), see 5.5.1 |
 | `fl2k_cpp_upconverter_path` | Optional path to `cohi_native_upconverter` (is used for smisdr as well) |
 | `fl2k_live_gain_shift` | Level of the COHI-Stream part, same meaning as for FL2K (see above) |
 
@@ -587,6 +589,42 @@ socat -u TCP4-LISTEN:1234,reuseaddr TCP4-LISTEN:1235,reuseaddr
 sudo fl2k_tcp -s 10000000 -p 1235
 
 ```
+
+#### 5.5.1 smiSDR / parlioSDR with FPGA DUC: baseband I/Q (`hwconfig: smisdr_iq`)
+
+For devices with the DUC gateware ([smisdr/gateware](https://github.com/radiolab81/smisdr/tree/main/gateware), smiSDR, parlioSDR, rmiiSDR) the player does not send ready-made RF samples, but only the **I/Q baseband at its own sample rate**. NCO, rate conversion and mixing to the RF carrier are done by the FPGA. The host needs no `cohi_native_upconverter`, and the network data rate is only that of the baseband (250 kSps → approx. 8 MBit/s). All three program variants are supported:
+
+| Variant | Source of the baseband | NCO / input rate of the DUC |
+|---|---|---|
+| COHI-Player | I/Q of the WAV file | centre frequency and sample rate from the WAV header |
+| COHI-Stream | internet stations, mixed by `cohi_stemlab_live_upconverter` (as for the STEMlab) | `stemlab_live_lo_freq` / `stemlab_live_sample_rate` or `LOFREQ` / `SAMPLERATE` of the station list |
+| COHI-Player+Stream | WAV baseband + stations, added in the baseband | from the WAV header |
+
+The transfer follows the in-band protocol of the gateware (`gateware/README.md`):
+
+1. For every track whose centre frequency or sample rate differs from the previous one, the player sends `width 16` and `rate <MSps>` to the **control port** (TCP, one short connection per command). The bus rate is **twice** the I/Q sample rate, because I and Q are sent one after the other (250 kSps → `rate 0.5`, 500 kSps → `rate 1.0`, 1.25 MSps → `rate 2.5`).
+2. It then opens the **data port** and sends, in-band at the start of the stream, two commands: `S` (NCO frequency = centre frequency / LO) and `R` (sample rate of the I/Q data). Both carry a 32 bit phase tuning word `f / ref_clk * 2^32`.
+3. The I/Q samples follow as 16 bit little endian words with a 2 bit tag (bit 15:14 = `00` for I, `01` for Q) and 14 bit signed data. WAV samples (16 bit) are reduced to 14 bit with the level adjustment of the player (`autovol`, AGC) and limited to the 14 bit range. Pauses and the muted WAV player send I/Q zero samples, so the stream continues.
+
+The output is paced to the real time of the baseband in the same way as the RF output of `hwconfig: smisdr` (40 ms lead, no burst after a gap); one I/Q sample are two bus words, so the bus runs at twice the sample rate. This keeps the buffers of the device from running over.
+
+```yaml
+hwconfig: smisdr_iq
+program_variant: COHI-Stream          # or COHI-Player / COHI-Player+Stream
+smisdr_address: 192.168.1.50
+smisdr_data_port: 1234
+smisdr_control_port: 5000
+stemlab_live_lo_freq: 1125000         # only COHI-Stream (like for the STEMlab)
+stemlab_live_sample_rate: 1250000     # only COHI-Stream; 250000 / 500000 / 1250000
+# smisdr_iq_ref_clock: 50000000
+```
+
+- `smisdr_address`, `smisdr_data_port` and `smisdr_control_port` are shared with `hwconfig: smisdr`. With `smisdr_control_port: 0` no width/rate commands are sent; the device must then already be set to 16 bit and to twice the sample rate of the baseband.
+- `smisdr_iq_ref_clock`: clock of the gateware in Hz. The gateware runs with 50 MHz by default, which allows RF up to 25 MHz; with a PLL clock (e.g. 250 MHz) enter the real value here, otherwise frequency and sample rate would be wrong (the rate thresholds of the gateware must then fit the clock, too). The highest signal frequency (centre frequency + sample rate / 2) must lie below 95 % of half the clock (23.75 MHz at 50 MHz), otherwise an error is shown.
+- The DUC gateware knows exactly **three input rates: 250 kSps, 500 kSps and 1.25 MSps** (it selects them by thresholds on the rate word). Recordings or settings with any other sample rate are refused with an error message, because the gateware would play them at the wrong speed and frequency.
+- COHI-Stream and COHI-Player+Stream need the compiled `cohi_stemlab_live_upconverter` (`make`, or `stemlab_live_upconverter_path`), the same tool and the same station lists as for the STEMlab, and `ffmpeg` for the decoders. LO frequency and sample rate: see the table above; the station frequencies must lie within LO ± sample rate / 2.
+- Level: the live upconverter delivers carriers with peaks of up to approx. 1.8 times the carrier amplitude. The 14 bit interface is therefore driven such that the sum of the live stations (and in COHI-Player+Stream additionally the WAV baseband) has headroom; the WAV baseband keeps the level it has in COHI-Player. If the sum would still overload the interface, a slow peak limiter reduces the gain (message `level limiter active` in the log file) instead of clipping, which would produce heterodyne whistles. The field strength control (see 5.6) and `autovol` work as usual.
+- The debug windows (spectrum/waterfall, waveform) work as with the STEMlab: they show the complex baseband around the centre frequency.
 
 ### 5.6 Remote control of the station field strength (AMWaveSynth protocol)
 

@@ -75,6 +75,7 @@ class PlayerConfig:
         self.smisdr_sample_rate = "auto"
         self.smisdr_format = 8
         self.smisdr_offset = False
+        self.smisdr_iq_ref_clock = 50_000_000.0
         self.media_paths = []
         self.tracks = []
         self._raw_config = {}
@@ -201,15 +202,17 @@ class PlayerConfig:
 
         self.stemlab_live_lo_freq = self._raw_config.get("stemlab_live_lo_freq")
         self.stemlab_live_sample_rate = self._raw_config.get("stemlab_live_sample_rate")
-        stemlab_live_needed = (self.hwconfig == "stemlab" and self.program_variant == "COHI-Stream")
+        stemlab_live_needed = (self.hwconfig in ("stemlab", "smisdr_iq")
+                               and self.program_variant == "COHI-Stream")
         for name, value in (("stemlab_live_lo_freq", self.stemlab_live_lo_freq),
                              ("stemlab_live_sample_rate", self.stemlab_live_sample_rate)):
             if value is None:
                 if stemlab_live_needed:
                     raise ConfigError(tr(
-                        "{key} must be set in {file} for hwconfig: stemlab and program_variant: "
+                        "{key} must be set in {file} for hwconfig: {hwconfig} and program_variant: "
                         "COHI-Stream (there is no WAV file there from which LO frequency/sample "
-                        "rate could be taken automatically)").format(key=name, file=self.CONFIG_FILE))
+                        "rate could be taken automatically)").format(
+                        key=name, file=self.CONFIG_FILE, hwconfig=self.hwconfig))
                 continue
             try:
                 value = float(value)
@@ -225,6 +228,7 @@ class PlayerConfig:
                 self.stemlab_live_sample_rate = value
 
         self._load_smisdr_settings()
+        self._load_smisdr_iq_settings()
 
         self.log_mode = normalize_log_mode(self._raw_config.get("log_mode", DEFAULT_LOG_MODE))
         if self.log_mode not in VALID_LOG_MODES:
@@ -244,7 +248,7 @@ class PlayerConfig:
         self.smisdr_address = str(raw.get("smisdr_address") or "127.0.0.1").strip()
         self.smisdr_offset = bool(raw.get("smisdr_offset", False))
 
-        if self.hwconfig != "smisdr":
+        if self.hwconfig not in ("smisdr", "smisdr_iq"):
             return
 
         try:
@@ -261,6 +265,11 @@ class PlayerConfig:
         except (TypeError, ValueError) as exc:
             raise ConfigError(tr("invalid value for {key} in {file}: {error}").format(
                 key="smisdr_control_port", file=self.CONFIG_FILE, error=exc)) from exc
+
+        if self.hwconfig == "smisdr_iq":
+            # rate and sample format are not used: the DUC gets the I/Q baseband with the
+            # sample rate of the recording (16 bit words, bus rate = 2 x sample rate)
+            return
 
         rate = parse_rate_setting(raw.get("smisdr_sample_rate", "auto"))
         if rate is None:
@@ -283,6 +292,32 @@ class PlayerConfig:
                 key="smisdr_format", file=self.CONFIG_FILE,
                 value=raw.get("smisdr_format"), valid=", ".join(str(f) for f in SMISDR_FORMATS)))
         self.smisdr_format = sample_format
+
+    def _load_smisdr_iq_settings(self):
+        if self.hwconfig != "smisdr_iq":
+            return
+        raw = self._raw_config
+
+        if self.program_variant == "COHI-Stream" and self.stemlab_live_sample_rate is not None:
+            from smisdr_iq_backend import supported_rate, SUPPORTED_RATES_HZ
+            if supported_rate(self.stemlab_live_sample_rate) is None:
+                raise ConfigError(tr(
+                    "stemlab_live_sample_rate in {file} ({value}) is not supported by the DUC "
+                    "gateware of hwconfig: smisdr_iq (supported: {rates})").format(
+                    file=self.CONFIG_FILE, value=int(self.stemlab_live_sample_rate),
+                    rates=", ".join(str(r) for r in SUPPORTED_RATES_HZ)))
+
+        try:
+            ref_clock = raw.get("smisdr_iq_ref_clock", 50_000_000)
+            if isinstance(ref_clock, str):
+                ref_clock = ref_clock.replace(",", ".")
+            ref_clock = float(ref_clock)
+            if not ref_clock > 0:
+                raise ValueError("must be positive")
+        except (TypeError, ValueError) as exc:
+            raise ConfigError(tr("invalid value for {key} in {file}: {error}").format(
+                key="smisdr_iq_ref_clock", file=self.CONFIG_FILE, error=exc)) from exc
+        self.smisdr_iq_ref_clock = ref_clock
 
     def save_host_address(self, address):
         self.host_address = address

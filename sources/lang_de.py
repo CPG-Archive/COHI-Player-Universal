@@ -130,8 +130,8 @@ TEXTS = {
     "{key} in {file} must not be negative": "{key} in {file} darf nicht negativ sein",
     "invalid value for {key} in {file}: '{value}' (valid: {valid})":
         "ungültiger Wert für {key} in {file}: '{value}' (gültig: {valid})",
-    "{key} must be set in {file} for hwconfig: stemlab and program_variant: COHI-Stream (there is no WAV file there from which LO frequency/sample rate could be taken automatically)":
-        "{key} muss in {file} gesetzt sein bei hwconfig: stemlab und program_variant: COHI-Stream (dort gibt es keine WAV-Datei, aus der LO-Frequenz/Abtastrate automatisch übernommen werden könnten)",
+    "{key} must be set in {file} for hwconfig: {hwconfig} and program_variant: COHI-Stream (there is no WAV file there from which LO frequency/sample rate could be taken automatically)":
+        "{key} muss in {file} gesetzt sein bei hwconfig: {hwconfig} und program_variant: COHI-Stream (dort gibt es keine WAV-Datei, aus der LO-Frequenz/Abtastrate automatisch übernommen werden könnten)",
     "{key} in {file} must be positive": "{key} in {file} muss positiv sein",
     "invalid value for {key} in {file} (known: {valid})":
         "ungültiger Wert für {key} in {file} (bekannt: {valid})",
@@ -370,4 +370,24 @@ TEXTS = {
         'beende cohi_native_upconverter ...',
     'smisdr output stopped':
         'smisdr-Ausgabe beendet',
+    'smiSDR / parlioSDR with FPGA DUC (baseband I/Q, in-band signaling)':
+        'smiSDR / parlioSDR mit FPGA-DUC (Basisband-I/Q, In-Band-Signalisierung)',
+    'NOTE: hwconfig: smisdr_iq - please check smisdr_address and the ports in {file} - this tool does NOT set these values.':
+        'HINWEIS: hwconfig: smisdr_iq - bitte smisdr_address und die Ports in {file} prüfen - dieses Programm setzt diese Werte NICHT.',
+    'hwconfig: smisdr_iq - please check smisdr_address and the ports in config_sdr.yaml - this tool does NOT set these values.':
+        'hwconfig: smisdr_iq - bitte smisdr_address und die Ports in config_sdr.yaml prüfen - dieses Programm setzt diese Werte NICHT.',
+    'recording (up to {edge} Hz) is above the usable range of the DUC ({limit} Hz) - check smisdr_iq_ref_clock':
+        'Aufnahme (bis {edge} Hz) liegt oberhalb des nutzbaren Bereichs des DUC ({limit} Hz) - bitte smisdr_iq_ref_clock prüfen',
+    'smisdr_iq output started (NCO {freq} Hz, I/Q {rate} kSps, DUC in the FPGA)':
+        'smisdr_iq-Ausgabe gestartet (NCO {freq} Hz, I/Q {rate} kS/s, DUC im FPGA)',
+    'sample rate {rate} Hz of the recording is not supported by the DUC gateware (only 250000, 500000 and 1250000 Hz)':
+        'Samplerate {rate} Hz der Aufnahme wird vom DUC-Gateware nicht unterstützt (nur 250000, 500000 und 1250000 Hz)',
+    'stopping smisdr_iq output ...':
+        'beende smisdr_iq-Ausgabe ...',
+    'smisdr_iq output stopped':
+        'smisdr_iq-Ausgabe beendet',
+    'sending to the smiSDR/parlioSDR failed: {error}':
+        'Senden an die smiSDR/parlioSDR fehlgeschlagen: {error}',
+    'stemlab_live_sample_rate in {file} ({value}) is not supported by the DUC gateware of hwconfig: smisdr_iq (supported: {rates})':
+        'stemlab_live_sample_rate in {file} ({value}) wird vom DUC-Gateware bei hwconfig: smisdr_iq nicht unterstützt (unterstützt: {rates})',
 }
