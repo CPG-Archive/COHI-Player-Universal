@@ -540,8 +540,6 @@ Notes on the wide formats:
 - **Data rate:** two bytes per sample (also for `816`), i.e. 10 / 20 / 25 MByte/s (80 / 160 / 200 Mbit/s) at 5 / 10 / 12.5 MSps. Fast Ethernet (100 Mbit/s) is only sufficient at 5 MSps; at 10 and 12.5 MSps a Gigabit connection is required.
 - **Resolution of the signal:** measurements of the existing DSP chain (interpolation, FIR filter, mixer) with a 1 MHz test carrier at 5 MSps showed an SNR of approx. 59 dB (8 bit), 64 dB (10 bit) and 65 dB (12 and 14 bit) in a 200 kHz band around the carrier, and a spurious-free range of approx. 70 dB. Beyond 10 bit the output quantisation therefore is no longer the limiting factor; the remaining limit comes from the existing DSP chain (most likely the interpolation/filter structure - a finer sine table made no difference in a test). 12 and 14 bit DACs can be driven with their full word width, but the signal does not get 12 or 14 bit of dynamic range from that.
 
-**Current limitation:** the **I/Q in-band signaling** of the smiSDR / parlioSDR gateware (16 bit with in-band signaling, where the digital upconversion is done in the FPGA and only the I/Q baseband is transmitted) is **not implemented yet**. COHI-Player always sends ready-made RF samples (classic mode).
-
 **fl2k_tcp as a “fake” smiSDR/parlioSDR**: While the COHI Player's pure fl2k mode uses the fl2k_file playback process, a remote or local fl2k_tcp process from the osmo-fl2k package can be used as a “fake” smiSDR/parlioSDR for testing purpose. All methods using raw RF samples over TCP/IP.
 
 To do this, set the output hardware to smisdr in the config_sdr.yaml file. 
