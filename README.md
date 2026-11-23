@@ -273,7 +273,7 @@ System packages:
 
 ```bash
 sudo apt update
-sudo apt install python3-pyqt5 qttranslations5-l10n ffmpeg build-essential
+sudo apt install python3-pyqt5 python3-pip qttranslations5-l10n ffmpeg build-essential
 ```
 
 - `qttranslations5-l10n` is only needed for German standard buttons (Yes/No, file dialogs).
