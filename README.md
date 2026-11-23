@@ -1,7 +1,7 @@
 # COHI-Player-Universal
 
 
-**Version 1.2.3** · License: [GPL-3.0](LICENSE)
+**Version 1.2.4** · License: [GPL-3.0](LICENSE)
 
 Original author: Claus Peter Gallenmiller (v1.0.0, [CPG-Archive/COHI-Player-Universal](https://github.com/CPG-Archive/COHI-Player-Universal)).
 Extensions by radiolab81:
@@ -12,6 +12,7 @@ Extensions by radiolab81:
 
 - **v1.2.2** (20.11.2026, CPG): installer for Linux platform and sample files in m3u format added
 - **v1.2.3** (22.11.2026, RL81): basic support for I/Q baseband streaming with in-band signaling for smiSDR (gateware: FPGA DUC) added 
+- **v1.2.4** (23.11.2026, RL81): real-time pacing also in the pure COHI-Player mode (WAV only, no live channels) of `cohi_native_upconverter`; pacing lead raised to 100 ms and reset threshold to 250 ms in all modes (also `smisdr_iq`) for smoother playback with smiSDR / parlioSDR
 
   
 COHI-Player turns a Raspberry Pi or PC into a small "broadcast station" for vintage radios. It replays recordings of complete AM broadcast bands and/or current internet radio streams on several freely selectable carrier frequencies at the same time, so that an old receiver can be tuned across the dial just like in its day. 
@@ -517,7 +518,7 @@ The list can be loaded, edited and saved directly in the program (buttons *Load*
 With `hwconfig: smisdr` COHI-Player feeds a [smiSDR / parlioSDR](https://github.com/radiolab81/smisdr) with ready-made RF samples, using the same network interface as the COHIRADIAStreamer (classic mode, not the I/Q in-band mode):
 
 1. For every recording the player sends `width 8` (or `width 16` for `smisdr_format: 816`, `10`, `12` and `14`) and `rate 5.0`, `rate 10.0` or `rate 12.5` to the **control port** (TCP, one short connection per command).
-2. Then it opens one connection to the **data port** and streams the RF samples in real time.
+2. Then it opens one connection to the **data port** and streams the RF samples in real time. The output of `cohi_native_upconverter` is paced to the real time of the output rate in all three program modes (100 ms lead, no burst after a gap); the player is slowed down by the pipe accordingly, so that pause and track change take effect without a long lag.
 
 The digital upconversion is done by the same C++ tool as for FL2K (`cohi_native_upconverter`, compile with `make`), which is started with a target rate of exactly 5, 10 or 12.5 MHz. Without the new option `--output-bits` the tool behaves exactly as before (8 bit, byte-identical output, also for FL2K); only for `smisdr_format: 10`, `12` and `14` the player adds `--output-bits 10|12|14`. All three program modes (COHI-Player, COHI-Stream, COHI-Player+Stream) are supported; on Windows only COHI-Player.
 
@@ -606,7 +607,7 @@ The transfer follows the in-band protocol of the gateware (`gateware/README.md`)
 2. It then opens the **data port** and sends, in-band at the start of the stream, two commands: `S` (NCO frequency = centre frequency / LO) and `R` (sample rate of the I/Q data). Both carry a 32 bit phase tuning word `f / ref_clk * 2^32`.
 3. The I/Q samples follow as 16 bit little endian words with a 2 bit tag (bit 15:14 = `00` for I, `01` for Q) and 14 bit signed data. WAV samples (16 bit) are reduced to 14 bit with the level adjustment of the player (`autovol`, AGC) and limited to the 14 bit range. Pauses and the muted WAV player send I/Q zero samples, so the stream continues.
 
-The output is paced to the real time of the baseband in the same way as the RF output of `hwconfig: smisdr` (40 ms lead, no burst after a gap); one I/Q sample are two bus words, so the bus runs at twice the sample rate. This keeps the buffers of the device from running over.
+The output is paced to the real time of the baseband in the same way as the RF output of `hwconfig: smisdr` (100 ms lead, no burst after a gap); one I/Q sample are two bus words, so the bus runs at twice the sample rate. This keeps the buffers of the device from running over.
 
 ```yaml
 hwconfig: smisdr_iq
@@ -708,6 +709,7 @@ The sample rate of the recording must be supported by the output hardware; for S
 | "C++ tool not found" | The C++ tools have not been compiled yet: run `make` in the program directory. |
 | No WAV files are found | File names must end with `_0.wav` (lower case on Linux); check `filename`, `filename2`, … in `config_sdr.yaml`. |
 | Crackling with STEMlab in COHI-Stream | Use `stemlab_live_sample_rate: 1250000` instead of `2500000`. |
+| Audio stutters or the player runs ahead of the sound with smiSDR / parlioSDR | The output is paced in `cohi_native_upconverter.cpp` (`PACE_LEAD_S`, default 0.100 s, and `PACE_MAX_BEHIND_S`, default 0.250 s, once in the COHI-Player and once in the COHI-Stream/Player+Stream part); for `smisdr_iq` the same values are `PACING_LEAD_S` / `PACING_MAX_BEHIND_S` in `smisdr_iq_backend.py`. A larger lead tolerates more network jitter but delays pause and track change; recompile with `make` after a change. |
 | smiSDR/parlioSDR is not reachable | Check `smisdr_address` and the ports in `config_sdr.yaml` and that the device is running; the control port is tested at program start. |
 | "recording does not fit the smisdr output rate" | Set a higher `smisdr_sample_rate` or `auto` (see 5.5). |
 | STEMlab is not found | Check the network connection and the STEMlab firmware; alternatively enter the IP address in `address`. |

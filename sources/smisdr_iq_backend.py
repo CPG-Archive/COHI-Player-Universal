@@ -96,8 +96,8 @@ SEND_BUFFER_BYTES = 512 * 1024
 # set anew instead of catching up with a burst.
 # Unit of time: one I/Q pair = 2 bus words (I, Q) = 1 / sample_rate seconds, i.e. the bus
 # runs at 2 x sample_rate words/s (the "rate" command sets exactly that).
-PACING_LEAD_S = 0.040
-PACING_MAX_BEHIND_S = 0.100
+PACING_LEAD_S = 0.100
+PACING_MAX_BEHIND_S = 0.250
 
 DEBUG_TAP_MIN_INTERVAL_S = 0.1
 CLOSE_SILENCE_PAIRS = 256
