@@ -265,7 +265,7 @@ Without a desktop (e.g. via SSH) stage 2 runs in the terminal. Useful command li
 
 If you are an expert, then you can configure your own system from scratch. In that case please follow the instructions below:
 
-### 4.1 Raspberry Pi OS
+### 4.1 Raspberry Pi OS / Debian-based Linux PC
 
 Download the release (or clone the repository) into a directory of your choice, e.g. `~/cohi-player`, and change into it.
 
