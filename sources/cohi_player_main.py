@@ -185,13 +185,18 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             return
         for warning in params.warnings:
             logger.warning("station list: %s", warning)
-        if self.config.hwconfig != "stemlab" or self.config.program_variant != "COHI-Stream":
+        if self.config.hwconfig not in ("stemlab", "smisdr_iq") \
+                or self.config.program_variant != "COHI-Stream":
             if params.lofreq_khz is not None or params.samplerate_khz is not None:
                 logger.info("station list: LOFREQ/SAMPLERATE are only used for hwconfig: stemlab "
-                            "with program_variant: COHI-Stream - ignored")
+                            "or smisdr_iq with program_variant: COHI-Stream - ignored")
             return
-        from stemlab_backend import StemlabBackend
-        valid_rates = StemlabBackend.identify()["rates"]
+        if self.config.hwconfig == "smisdr_iq":
+            from smisdr_iq_backend import SmisdrIqBackend
+            valid_rates = SmisdrIqBackend.identify()["rates"]["values"]
+        else:
+            from stemlab_backend import StemlabBackend
+            valid_rates = StemlabBackend.identify()["rates"]
         new_lo = params.lofreq_hz
         new_rate = params.samplerate_hz
         if new_rate is not None and int(round(new_rate)) not in valid_rates:
@@ -289,7 +294,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self._early_setup_debug()
 
         self.system_thread.started.connect(self.system_worker.connect_device)
-        if self.config.hwconfig == "stemlab":
+        if self.config.hwconfig in ("stemlab", "smisdr_iq"):
             live_params = {"sample_rate": self.config.stemlab_live_sample_rate,
                            "center_freq": self.config.stemlab_live_lo_freq}
         else:
@@ -591,6 +596,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self._debug_udp_port = _make_debug_udp_socket_free_port()
             self.system_worker.backend.set_debug_udp_port(self._debug_udp_port)
 
+    def _debug_tap_hwconfig(self):
+        # backends that deliver complex I/Q (and the LO frequency) to the debug displays
+        return self.config.hwconfig in ("stemlab", "smisdr_iq")
+
     def _setup_debug_data_feed(self):
         if self._debug_data_feed_initialized:
             return
@@ -604,7 +613,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             logger.error("debug displays requested but import failed: %s", exc)
             return
 
-        if self.config.hwconfig == "stemlab":
+        if self._debug_tap_hwconfig():
             backend = self.system_worker.backend
             params = backend._current_params
             sample_rate = float(params[0]) if params else 2_500_000.0
@@ -623,7 +632,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             return
         if self._debug_spectrum_window_instance is None:
             from debug_windows import SpectrumWaterfallWindow
-            is_complex = (self.config.hwconfig == "stemlab")
+            is_complex = self._debug_tap_hwconfig()
             self._debug_spectrum_window_instance = SpectrumWaterfallWindow(self._debug_bridge, is_complex)
         self._debug_spectrum_window_instance.show()
         self._debug_spectrum_window_instance.raise_()
@@ -634,7 +643,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             return
         if self._debug_timedomain_window_instance is None:
             from debug_windows import TimeDomainWindow
-            is_complex = (self.config.hwconfig == "stemlab")
+            is_complex = self._debug_tap_hwconfig()
             self._debug_timedomain_window_instance = TimeDomainWindow(self._debug_bridge, is_complex)
         self._debug_timedomain_window_instance.show()
         self._debug_timedomain_window_instance.raise_()

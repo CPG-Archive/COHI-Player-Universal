@@ -12,7 +12,7 @@ from i18n import tr
 
 logger = logging.getLogger(__name__)
 
-KNOWN_HWCONFIGS = ("stemlab", "fl2k", "smisdr")
+KNOWN_HWCONFIGS = ("stemlab", "fl2k", "smisdr", "smisdr_iq")
 
 
 def _resolve_fl2k_upconverter(value):
@@ -68,6 +68,18 @@ def create_backend(config):
                                  live_control_port=config.live_control_port,
                                  live_sferics_port=config.live_sferics_port,
                                  live_gain_shift=config.fl2k_live_gain_shift)
+    elif config.hwconfig == "smisdr_iq":
+        from smisdr_iq_backend import SmisdrIqBackend
+        backend = SmisdrIqBackend(address=config.smisdr_address,
+                                   data_port=config.smisdr_data_port,
+                                   control_port=config.smisdr_control_port,
+                                   ref_clock_hz=config.smisdr_iq_ref_clock,
+                                   live_enabled=config.live_enabled,
+                                   program_variant=config.program_variant,
+                                   live_stations_file=config.live_stations_file,
+                                   live_upconverter_tool_path=config.stemlab_live_upconverter_path,
+                                   live_control_port=config.live_control_port,
+                                   live_sferics_port=config.live_sferics_port)
     else:
         raise ValueError(tr("unknown hwconfig '{value}' in config_sdr.yaml (known: {known})").format(
             value=config.hwconfig, known=", ".join(KNOWN_HWCONFIGS)))
@@ -85,4 +97,6 @@ def backend_display_name(config):
         rate = config.smisdr_sample_rate
         rate_text = "auto" if rate == "auto" else f"{rate / 1e6:g} MSps"
         return f"smisdr / {rate_text}"
+    if config.hwconfig == "smisdr_iq":
+        return "smisdr_iq / FPGA DUC"
     return config.hwconfig

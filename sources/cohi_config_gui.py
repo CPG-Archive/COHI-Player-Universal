@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 ####################################################
 # COHI-Player-Universal
-# V1.2.1, 21.11.2026
+# V1.0.0, 24.10.2026
 # Author: Claus Peter Gallenmiller, cpg-radio@gmx.de
 ####################################################
 
@@ -58,6 +58,9 @@ def compute_stemlab_live_hint(new_hwconfig, new_program_variant, current):
 
 
 def compute_smisdr_hint(new_hwconfig):
+    if new_hwconfig == "smisdr_iq":
+        return tr("hwconfig: smisdr_iq - please check smisdr_address and the ports in "
+                  "config_sdr.yaml - this tool does NOT set these values.")
     if new_hwconfig == "smisdr":
         return tr("hwconfig: smisdr - please check smisdr_address, the ports and "
                   "smisdr_sample_rate in config_sdr.yaml - this tool does NOT set "
@@ -299,24 +302,6 @@ if _PYQT5_AVAILABLE:
             self.current = parse_current_values(new_text, self.config_path)
 
 
-# Maximale Fenstergroesse (wie Raspberry-Pi-7"-Display im Querformat). Auf grossen
-# PC-Bildschirmen wird das Fenster begrenzt und zentriert, auf kleineren Displays
-# (z.B. 3.5" 480x320) fuellt es wie bisher die gesamte verfuegbare Flaeche.
-MAX_WINDOW_WIDTH = 1280
-MAX_WINDOW_HEIGHT = 720
-
-
-def compute_window_geometry(avail_x, avail_y, avail_width, avail_height,
-                            max_width=MAX_WINDOW_WIDTH, max_height=MAX_WINDOW_HEIGHT):
-    """Liefert (x, y, Breite, Hoehe): verfuegbare Flaeche, begrenzt auf max_width x
-    max_height und darin zentriert."""
-    width = min(avail_width, max_width)
-    height = min(avail_height, max_height)
-    x = avail_x + (avail_width - width) // 2
-    y = avail_y + (avail_height - height) // 2
-    return x, y, width, height
-
-
 def _run_gui(config_path):
     app = QApplication(sys.argv)
     i18n.install_qt_translator(app)
@@ -328,8 +313,7 @@ def _run_gui(config_path):
     window = ConfigWindow(config_path)
 
     available = app.desktop().availableGeometry()
-    window.setGeometry(*compute_window_geometry(
-        available.x(), available.y(), available.width(), available.height()))
+    window.setGeometry(available)
 
     window.show()
     sys.exit(app.exec_())

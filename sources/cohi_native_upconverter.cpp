@@ -1,12 +1,15 @@
 ////////////////////////////////////////////////////
 // COHI-Player-Universal
-// V1.2.1, 16.11.2026
+// V1.2.4, 23.11.2026
 // Author: Claus Peter Gallenmiller, cpg-radio@gmx.de
 // Modified by radiolab81:
 //   V1.1.0, 10.11.2026: smiSDR / parlioSDR output with 8 to 14 bit DAC formats
 //   V1.1.1, 11.11.2026: UDP field strength control, sferics / lightning simulation (AMWaveSynth protocol)
 //   V1.2.1, 16.11.2026: real-time pacing of the live output thread (fixes stuttering COHI-Stream audio
 //                       and decoder restarts with smiSDR / parlioSDR, see README 5.5)
+//   V1.2.4, 23.11.2026: real-time pacing also in the pure WAV mode (no live channels), same
+//                       mechanism as the live output thread; lead 100 ms / reset threshold
+//                       250 ms in both modes
 ////////////////////////////////////////////////////
 
 #include <cstdint>
@@ -712,6 +715,25 @@ int main(int argc, char** argv) {
         double audio_seconds_in_window = 0.0;
         constexpr double LOAD_LOG_INTERVAL_S = 10.0;
 
+        // --- ECHTZEIT-PACING (reiner WAV-Betrieb, ohne Live-Kanaele) -------------
+        // Wie im Live-Zweig weiter unten: Ohne Uhr laeuft der Upconverter nur so
+        // schnell, wie die Senke Daten annimmt. smiSDR/parlioSDR nehmen ueber
+        // Socket-/Pi-Puffer schneller als Echtzeit an (fl2k_tcp bremst dagegen per
+        // USB selbst). Die Deadline wird um die Dauer jedes ausgegebenen Blocks
+        // weitergeschoben; der Block darf hoechstens PACE_LEAD_S vor der Echtzeit
+        // liegen. Faellt er mehr als PACE_MAX_BEHIND_S zurueck (Titelwechsel,
+        // Pause, Lesestau), wird die Uhr neu aufgesetzt statt im Burst aufzuholen.
+        // Da der Upconverter dann langsamer von stdin liest, bremst die Pipe den
+        // Player (Backpressure) und Pause / Titelwechsel greifen ohne grossen Nachlauf.
+        constexpr double PACE_LEAD_S = 0.100;
+        constexpr double PACE_MAX_BEHIND_S = 0.250;
+        const auto pace_lead = std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+            std::chrono::duration<double>(PACE_LEAD_S));
+        const auto pace_max_behind = std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+            std::chrono::duration<double>(PACE_MAX_BEHIND_S));
+        auto pace_deadline = std::chrono::steady_clock::now();
+        // --------------------------------------------------------------------------
+
         while (true) {
             size_t got = std::fread(read_buf.data(), sizeof(int16_t), block_size * 2, stdin);
             if (got == 0) {
@@ -766,6 +788,16 @@ int main(int argc, char** argv) {
             if (out_idx > 0) {
                 out_stage.emit(out_buf.data(), out_idx, debug_sender, out_tmp);
                 std::fflush(stdout);
+
+                // Pacing: Echtzeit-Deadline um die Dauer dieses Blocks weiterschieben
+                pace_deadline += std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+                    std::chrono::duration<double>(static_cast<double>(out_idx) / args.target_rate));
+                auto now = std::chrono::steady_clock::now();
+                if (now - pace_deadline > pace_max_behind) {
+                    pace_deadline = now;                   // nicht im Burst aufholen
+                } else if (pace_deadline - pace_lead > now) {
+                    std::this_thread::sleep_until(pace_deadline - pace_lead);
+                }
             }
 
             auto batch_ended_at = std::chrono::steady_clock::now();
@@ -843,8 +875,8 @@ int main(int argc, char** argv) {
     // PACE_LEAD_S vor der Echtzeit liegen. Faellt er laenger als PACE_MAX_BEHIND_S
     // zurueck (Senke blockierte), wird die Uhr neu aufgesetzt statt im Burst
     // aufzuholen (ein Burst wuerde die Live-Ringe sofort wieder leersaugen).
-    constexpr double PACE_LEAD_S = 0.040;
-    constexpr double PACE_MAX_BEHIND_S = 0.100;
+    constexpr double PACE_LEAD_S = 0.100;
+    constexpr double PACE_MAX_BEHIND_S = 0.250;
     const auto pace_batch_duration = std::chrono::duration_cast<std::chrono::steady_clock::duration>(
         std::chrono::duration<double>(static_cast<double>(OUTPUT_BATCH_SIZE) / args.target_rate));
     const auto pace_lead = std::chrono::duration_cast<std::chrono::steady_clock::duration>(
