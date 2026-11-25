@@ -1,0 +1,8 @@
+# Download sample files to directory /WAV relative to the COHIRADIA base directory
+COHIRADIA: /WAV
+https://cohiradia.radiomuseum.org/download/data/samples/AM1_Sample_0.wav
+https://cohiradia.radiomuseum.org/download/data/samples/AM1_livestreams.m3u
+https://cohiradia.radiomuseum.org/download/data/samples/AM1_livestreams.csv
+
+# Download sample files to directory / relative to the AMWaveSynthPropagationSimulator base directory
+AMWaveSynthPropagationSimulator: /
