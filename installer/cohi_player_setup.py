@@ -19,6 +19,9 @@ Stufe 2 (Fenster mit PyQt5, ohne Desktop in der Konsole):
         - optional: make clean && make, osmo-fl2k (README 4.3), Desktop-Icons
           "COHI-Player", "Config COHI" und "COHI Update"
     Block "Optionale Erweiterungen"
+        - Beispieldateien herunterladen (Vorgabe: nicht ausgewählt), Liste in
+          installer/sample_files.txt im Repository; vorhandene Dateien werden
+          nach Rückfrage ersetzt und als <Name>.bak-<Datum-Uhrzeit> gesichert
         - AMWaveSynthPropagationSimulator (Vorgabe: nicht ausgewählt) nach
           ~/AMWaveSynthPropagationSimulator mit eigener venv (uv, Python 3.13)
           und Desktop-Icon; nur auf einem PC sinnvoll; kein Update, eine
@@ -52,13 +55,14 @@ import sys
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 import zipfile
 
 # Version dieses Installers: beim Ändern erhöhen, sonst holen sich vorhandene
 # Installationen die neue Version beim Update nicht (Selbst-Update nur bei
 # höherer Versionsnummer)
-SETUP_VERSION = "1.4.1"
+SETUP_VERSION = "1.5.0"
 
 REPO = "CPG-Archive/COHI-Player-Universal"
 BRANCH = "master"
@@ -535,14 +539,33 @@ def http_download(url, dest, progress=None, retries=3):
                     done += len(chunk)
                     if progress:
                         progress(done, total)
+            # bricht die Verbindung vorzeitig ab, liefert read() einfach kein
+            # weiteres Stück: deshalb die Größe selbst prüfen
+            if total and done != total:
+                raise OSError(T(f"unvollständig: {done} von {total} Bytes empfangen",
+                                f"incomplete: received {done} of {total} bytes"))
             if progress:
                 progress(done, done)
             os.replace(tmp, dest)
             return dest
+        except urllib.error.HTTPError as exc:
+            _remove_quietly(tmp)
+            if 400 <= exc.code < 500:          # z.B. 404: Wiederholen hilft nicht
+                raise
+            last = exc
+            time.sleep(3 * (attempt + 1))
         except (OSError, urllib.error.URLError) as exc:
+            _remove_quietly(tmp)
             last = exc
             time.sleep(3 * (attempt + 1))
     raise last
+
+
+def _remove_quietly(path):
+    try:
+        os.remove(path)
+    except OSError:
+        pass
 
 
 def github_json(path):
@@ -1160,6 +1183,268 @@ def install_amwave(ui, manual_steps, skip_apt=False):
 
 
 # ---------------------------------------------------------------------------
+# Beispieldateien (installer/sample_files.txt im Repository)
+# ---------------------------------------------------------------------------
+SAMPLES_REPO_PATH = "installer/sample_files.txt"
+SAMPLES_RAW_URL = f"https://raw.githubusercontent.com/{REPO}/{BRANCH}/{SAMPLES_REPO_PATH}"
+SAMPLE_SECTIONS = ("COHIRADIA", AMW_NAME)
+
+
+def fetch_sample_list(source_zip=None):
+    """Inhalt von installer/sample_files.txt: aus dem angegebenen ZIP, sonst von GitHub"""
+    if source_zip:
+        try:
+            return read_zip_member(source_zip, SAMPLES_REPO_PATH).decode("utf-8", "replace")
+        except (OSError, KeyError, zipfile.BadZipFile):
+            pass
+    req = urllib.request.Request(SAMPLES_RAW_URL, headers=_UA)
+    with urllib.request.urlopen(req, timeout=20) as resp:
+        return resp.read().decode("utf-8", "replace")
+
+
+def parse_sample_list(text, bases):
+    """Liste der Beispieldateien auswerten. Syntax:
+
+        # Kommentar
+        COHIRADIA: /WAV                          Zielverzeichnis relativ zum
+                                                 Installationsverzeichnis des COHI-Players
+        https://.../AM1_Sample_0.wav             Dateien für dieses Verzeichnis
+        AMWaveSynthPropagationSimulator: /       relativ zu ~/AMWaveSynthPropagationSimulator
+
+    Eine Zielangabe gilt bis zur nächsten; es darf beliebig viele geben, auch
+    mehrere für dasselbe Programm, und Unterverzeichnisse über mehrere Ebenen
+    (z.B. COHIRADIA: /WAV/AM/1960), die beim Download angelegt werden.
+    bases: {Abschnitt: Basisverzeichnis oder None, wenn das Programm weder
+    installiert ist noch jetzt installiert wird}.  Ergebnis: (Einträge, Hinweise)"""
+    entries, notes = [], []
+    section, dest_dir = None, None
+    for no, raw in enumerate(text.splitlines(), start=1):
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.lower().startswith(("http://", "https://")):
+            if section is None:
+                notes.append(T(f"Zeile {no}: Datei ohne vorherige Zielangabe, übersprungen: {line}",
+                               f"line {no}: file without a preceding target, skipped: {line}"))
+                continue
+            if dest_dir is None:
+                continue                          # Abschnitt wird übersprungen (Hinweis steht schon da)
+            name = urllib.parse.unquote(os.path.basename(urllib.parse.urlsplit(line).path))
+            if not name or name in (".", ".."):
+                notes.append(T(f"Zeile {no}: kein Dateiname in {line}",
+                               f"line {no}: no file name in {line}"))
+                continue
+            entries.append({"url": line, "dir": dest_dir, "dest": os.path.join(dest_dir, name),
+                            "name": name, "section": section, "size": None, "error": None})
+            continue
+        key, colon, rel = line.partition(":")
+        if not colon:
+            notes.append(T(f"Zeile {no}: nicht verstanden: {line}",
+                           f"line {no}: not understood: {line}"))
+            continue
+        key = key.strip()
+        section = next((x for x in SAMPLE_SECTIONS if x.lower() == key.lower()), key)
+        dest_dir = None
+        if section not in SAMPLE_SECTIONS:
+            notes.append(T(f"Zeile {no}: unbekannte Zielangabe '{key}', die folgenden Dateien "
+                           "werden übersprungen",
+                           f"line {no}: unknown target '{key}', the following files are skipped"))
+            continue
+        base = bases.get(section)
+        if not base:
+            notes.append(T(f"{section} ist nicht installiert und wird jetzt nicht installiert; "
+                           f"die Dateien für '{rel.strip()}' werden übersprungen.",
+                           f"{section} is not installed and is not being installed now; "
+                           f"the files for '{rel.strip()}' are skipped."))
+            continue
+        parts = [x for x in rel.strip().replace("\\", "/").split("/") if x and x != "."]
+        if ".." in parts:
+            notes.append(T(f"Zeile {no}: '..' ist im Zielverzeichnis nicht erlaubt: {line}",
+                           f"line {no}: '..' is not allowed in the target directory: {line}"))
+            continue
+        dest_dir = os.path.join(base, *parts)
+    # jede Zieldatei nur einmal
+    seen, unique = set(), []
+    for e in entries:
+        if e["dest"] in seen:
+            notes.append(T(f"doppelt, nur einmal geladen: {e['url']}",
+                           f"duplicate, downloaded only once: {e['url']}"))
+            continue
+        seen.add(e["dest"])
+        unique.append(e)
+    return unique, notes
+
+
+def probe_samples(entries):
+    """Verfügbarkeit und Größe jeder Datei auf dem Server prüfen (HEAD)"""
+    for e in entries:
+        try:
+            req = urllib.request.Request(e["url"], headers=_UA, method="HEAD")
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                n = resp.headers.get("Content-Length")
+                e["size"] = int(n) if n and n.isdigit() else None
+        except urllib.error.HTTPError as exc:
+            if exc.code in (405, 501):            # HEAD nicht unterstützt: beim Download sehen
+                continue
+            e["error"] = f"HTTP {exc.code} {exc.reason}"
+        except Exception as exc:
+            e["error"] = str(getattr(exc, "reason", exc))
+
+
+def sample_bases(cfg):
+    """Basisverzeichnisse der Abschnitte: nur, wenn das Programm installiert ist
+    oder in diesem Lauf installiert wird"""
+    target = cfg.get("target") or default_target()
+    cohi = target if (cfg.get("cohi") or load_state(target).get("installed")) else None
+    amw = amwave_dir() if (cfg.get("amwave") or amwave_installed()) else None
+    return {"COHIRADIA": cohi, AMW_NAME: amw}
+
+
+def plan_samples(cfg):
+    """Liste laden, auswerten und auf dem Server prüfen; Fehler beim Laden der
+    Liste werden als Ausnahme weitergegeben"""
+    text = fetch_sample_list(cfg.get("source_zip"))
+    entries, notes = parse_sample_list(text, sample_bases(cfg))
+    probe_samples(entries)
+    return entries, notes
+
+
+def fmt_size(n):
+    if n is None:
+        return "?"
+    for unit, f in (("GB", 1e9), ("MB", 1e6), ("kB", 1e3)):
+        if n >= f:
+            return f"{n / f:.1f} {unit}"
+    return f"{n} B"
+
+
+def short_path(path):
+    home = os.path.expanduser("~")
+    return "~" + path[len(home):] if path.startswith(home + os.sep) else path
+
+
+def samples_overview(entries, notes, limit=20):
+    """Text für die Rückfrage vor dem Download: (Text, ausführliche Liste oder '')"""
+    ok = [e for e in entries if not e["error"]]
+    bad = [e for e in entries if e["error"]]
+    lines = [f"  {short_path(e['dest'])}   ({fmt_size(e['size'])})" for e in ok]
+    out = []
+    if ok:
+        out.append(T("Folgende Beispieldateien werden heruntergeladen:",
+                     "The following sample files will be downloaded:"))
+        out += lines[:limit]
+        if len(lines) > limit:
+            out.append(T(f"  ... und {len(lines) - limit} weitere (siehe Details)",
+                         f"  ... and {len(lines) - limit} more (see details)"))
+        known = [e["size"] for e in ok if e["size"] is not None]
+        if known:
+            out.append(T(f"Zusammen: {fmt_size(sum(known))}", f"Total: {fmt_size(sum(known))}")
+                       + ("" if len(known) == len(ok) else
+                          T(" (ohne Dateien unbekannter Größe)", " (without files of unknown size)")))
+            # freier Platz im ersten vorhandenen übergeordneten Verzeichnis
+            d = ok[0]["dir"]
+            while d and not os.path.isdir(d):
+                d = os.path.dirname(d)
+            try:
+                free = shutil.disk_usage(d or os.path.expanduser("~")).free
+                if sum(known) > free * 0.95:
+                    out.append(T(f"ACHTUNG: Es sind nur noch {fmt_size(free)} frei!",
+                                 f"WARNING: only {fmt_size(free)} free!"))
+            except OSError:
+                pass
+        out.append("")
+        out.append(T("Hinweis: Bei großen Dateien kann der Download sehr lange dauern.",
+                     "Note: with large files the download can take a very long time."))
+    else:
+        out.append(T("Es gibt keine Beispieldateien, die heruntergeladen werden können.",
+                     "There are no sample files that can be downloaded."))
+    if bad:
+        out.append("")
+        out.append(T("FEHLER: Diese Dateien sind nicht verfügbar und werden übersprungen:",
+                     "ERROR: these files are not available and are skipped:"))
+        out += [f"  {e['url']}  –  {e['error']}" for e in bad]
+    if notes:
+        out.append("")
+        out.append(T("Hinweise:", "Notes:"))
+        out += ["  " + n for n in notes]
+    return "\n".join(out), ("\n".join(lines) if len(lines) > limit else "")
+
+
+def existing_samples(entries):
+    return [e for e in entries if not e["error"] and os.path.exists(e["dest"])]
+
+
+def existing_overview(existing):
+    names = [f"  {short_path(e['dest'])}" for e in existing]
+    if len(names) > 20:
+        names = names[:20] + [T(f"  ... und {len(existing) - 20} weitere",
+                                f"  ... and {len(existing) - 20} more")]
+    return (T("Diese Beispieldateien gibt es bereits:", "These sample files already exist:")
+            + "\n" + "\n".join(names) + "\n\n"
+            + T("Sollen sie überschrieben werden? Die vorhandenen Dateien bleiben als Sicherung "
+                "<Name>.bak-<Datum-Uhrzeit> erhalten.\n"
+                "Nein = nur die fehlenden Dateien herunterladen.",
+                "Shall they be overwritten? The existing files are kept as a backup "
+                "<name>.bak-<date-time>.\n"
+                "No = only download the missing files."))
+
+
+def download_samples(ui, entries, overwrite):
+    """Beispieldateien laden. Eine vorhandene Datei wird erst ersetzt, wenn die
+    neue vollständig geladen ist; die alte bleibt als <Name>.bak-<Datum-Uhrzeit>."""
+    ui.heading(T("Beispieldateien", "Sample files"))
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    errors, loaded, skipped = [], 0, 0
+    for e in entries:
+        if e["error"]:
+            errors.append(f"{e['url']}  –  {e['error']}")
+            continue
+        if os.path.exists(e["dest"]) and not overwrite:
+            ui.log(T("  vorhanden, nicht überschrieben: ", "  exists, not overwritten: ")
+                   + short_path(e["dest"]))
+            skipped += 1
+            continue
+        os.makedirs(e["dir"], exist_ok=True)
+        ui.log(T("lade ", "downloading ") + e["url"]
+               + (f"  ({fmt_size(e['size'])})" if e["size"] else ""))
+        tmp = e["dest"] + ".download"
+        last = [time.monotonic()]
+
+        def progress(done, total, name=e["name"]):
+            now = time.monotonic()
+            if now - last[0] >= 5:
+                last[0] = now
+                ui.log(f"  {name}: {fmt_size(done)}"
+                       + (f" / {fmt_size(total)} ({100 * done // total} %)" if total else ""))
+        try:
+            http_download(e["url"], tmp, progress)
+        except Exception as exc:
+            reason = (f"HTTP {exc.code} {exc.reason}" if isinstance(exc, urllib.error.HTTPError)
+                      else str(getattr(exc, "reason", exc)))
+            ui.log(T("  FEHLER: ", "  ERROR: ") + reason)
+            errors.append(f"{e['url']}  –  {reason}")
+            _remove_quietly(tmp)
+            continue
+        if os.path.exists(e["dest"]):
+            backup = f"{e['dest']}.bak-{stamp}"
+            os.replace(e["dest"], backup)
+            ui.log(T("  Sicherung der alten Datei: ", "  backup of the old file: ")
+                   + short_path(backup))
+        os.replace(tmp, e["dest"])
+        loaded += 1
+        ui.log("  -> " + short_path(e["dest"]))
+    ui.log(T(f"{loaded} Beispieldatei(en) geladen, {skipped} vorhandene behalten, "
+             f"{len(errors)} Fehler",
+             f"{loaded} sample file(s) downloaded, {skipped} existing kept, "
+             f"{len(errors)} error(s)"))
+    if errors:
+        ui.info(T("Folgende Beispieldateien konnten nicht heruntergeladen werden:\n\n",
+                  "The following sample files could not be downloaded:\n\n")
+                + "\n".join("- " + x for x in errors))
+    return not errors
+
+
+# ---------------------------------------------------------------------------
 # Gemeinsame Hilfen für Stufe 1 und 2
 # ---------------------------------------------------------------------------
 SETUP_RAW_URL = f"https://raw.githubusercontent.com/{REPO}/{BRANCH}/{SETUP_REPO_PATH}"
@@ -1266,7 +1551,7 @@ def stage2_args(args):
     for flag in ("yes", "no_gui", "no_system_packages", "update", "no_version_check"):
         if getattr(args, flag):
             out.append("--" + flag.replace("_", "-"))
-    for opt in ("cohi", "amwave", "icons", "make", "fl2k"):
+    for opt in ("cohi", "amwave", "samples", "icons", "make", "fl2k"):
         val = getattr(args, opt)
         if val is not None:
             out.append(("--" if val else "--no-") + opt)
@@ -1405,8 +1690,8 @@ def default_config(args, target, state, vs):
          "target": target,
          "env": state.get("python_env") or default_env(),
          "icons": prev.get("icons", True), "make": True, "fl2k": False,
-         "amwave": False}
-    for k in ("cohi", "amwave", "icons", "make", "fl2k"):
+         "amwave": False, "samples": False}
+    for k in ("cohi", "amwave", "samples", "icons", "make", "fl2k"):
         if getattr(args, k) is not None:
             d[k] = getattr(args, k)
     if args.python_env:
@@ -1433,7 +1718,8 @@ def cohi_step_count(cfg):
 def perform_all(ui, cfg):
     """Die gewählten Programme installieren; True, wenn alles klappte.
     Läuft im Fenster in einem eigenen Thread."""
-    total = (cohi_step_count(cfg) if cfg["cohi"] else 0) + (1 if cfg["amwave"] else 0)
+    total = ((cohi_step_count(cfg) if cfg["cohi"] else 0) + (1 if cfg["amwave"] else 0)
+             + (1 if cfg.get("samples") else 0))
     prog = Progress(ui, total)
     manual_steps, results = [], {}
     if cfg["cohi"]:
@@ -1449,6 +1735,15 @@ def perform_all(ui, cfg):
         except Exception as exc:
             ui.log(T("FEHLER bei amwave: ", "ERROR in amwave: ") + f"{type(exc).__name__}: {exc}")
             results["amwave"] = False
+        prog.next()
+    if cfg.get("samples"):
+        # zuletzt, damit die Zielverzeichnisse auch bei einer Erstinstallation existieren
+        try:
+            results["samples"] = download_samples(ui, cfg.get("sample_plan", []),
+                                                  cfg.get("samples_overwrite", False))
+        except Exception as exc:
+            ui.log(T("FEHLER bei samples: ", "ERROR in samples: ") + f"{type(exc).__name__}: {exc}")
+            results["samples"] = False
         prog.next()
 
     ui.heading(T("Ergebnis", "Result"))
@@ -1597,6 +1892,11 @@ def run_stage2_console(args, target, state, vs):
                 cfg[k] = ui.ask(f"{label}?\n  ({expl})", cfg[k])
 
     ui.heading(T("Optionale Erweiterungen", "Optional extensions"))
+    if args.samples is None:
+        cfg["samples"] = ui.ask(T("Beispieldateien herunterladen?\n  (zum Prüfen der Funktion "
+                                  "gleich nach der Installation; die Liste wird vorher angezeigt)",
+                                  "Download sample files?\n  (to check the function right after "
+                                  "the installation; the list is shown first)"), False)
     if args.amwave is None:
         cfg["amwave"] = ui.ask(
             T(f"{AMW_NAME} installieren?\n  (eigenständiges Zusatzprogramm zur Simulation der "
@@ -1606,7 +1906,9 @@ def run_stage2_console(args, target, state, vs):
     if cfg["amwave"]:
         for w in amwave_warnings():
             ui.log(T("WARNUNG: ", "WARNING: ") + w)
-    if not (cfg["cohi"] or cfg["amwave"]):
+    if cfg["samples"]:
+        cfg["samples"] = confirm_samples_console(ui, cfg)
+    if not (cfg["cohi"] or cfg["amwave"] or cfg["samples"]):
         ui.log(T("Nichts ausgewählt, nichts zu tun.", "Nothing selected, nothing to do."))
         return 0
 
@@ -1620,6 +1922,30 @@ def run_stage2_console(args, target, state, vs):
             break
         time.sleep(1)
     return 0 if perform_all(ui, cfg) else 2
+
+
+def confirm_samples_console(ui, cfg):
+    """Liste anzeigen und bestätigen lassen; True, wenn heruntergeladen werden soll"""
+    ui.log(T("lade die Liste der Beispieldateien ...", "loading the list of sample files ..."))
+    try:
+        entries, notes = plan_samples(cfg)
+    except Exception as exc:
+        ui.log(T("FEHLER: Die Liste der Beispieldateien kann nicht geladen werden: ",
+                 "ERROR: the list of sample files cannot be loaded: ")
+               + str(getattr(exc, "reason", exc)))
+        return False
+    text, detail = samples_overview(entries, notes, limit=10 ** 6)
+    ui.log("\n" + text + "\n")
+    if not any(not e["error"] for e in entries):
+        return False
+    if not ui.ask(T("Beispieldateien herunterladen?", "Download the sample files?"), True):
+        return False
+    overwrite = False
+    existing = existing_samples(entries)
+    if existing:
+        overwrite = ui.ask(existing_overview(existing), False)
+    cfg["sample_plan"], cfg["samples_overwrite"] = entries, overwrite
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -1722,6 +2048,7 @@ def run_gui(args, target, state, vs):
             self.grp_cohi = QtWidgets.QGroupBox("COHI-Player")
             self.grp_cohi.setCheckable(True)
             self.grp_cohi.setChecked(cfg["cohi"])
+            self.grp_cohi.toggled.connect(lambda _on: self.refresh_cohi_status())
             g = QtWidgets.QVBoxLayout(self.grp_cohi)
             form = QtWidgets.QFormLayout()
             row = QtWidgets.QHBoxLayout()
@@ -1764,6 +2091,19 @@ def run_gui(args, target, state, vs):
             # --- Block Optionale Erweiterungen -------------------------------------
             grp_ext = QtWidgets.QGroupBox(T("Optionale Erweiterungen", "Optional extensions"))
             ge = QtWidgets.QVBoxLayout(grp_ext)
+            self.cb_samples = QtWidgets.QCheckBox(T("Beispieldateien herunterladen",
+                                                    "Download sample files"))
+            self.cb_samples.setChecked(cfg["samples"])
+            ge.addWidget(self.cb_samples)
+            ge.addWidget(hint_label(
+                T("Lädt die in installer/sample_files.txt im GitHub-Repository aufgeführten "
+                  "Beispieldateien, um die Funktion gleich nach der Installation prüfen zu "
+                  "können. Die Dateien werden vorher angezeigt; vorhandene Dateien werden nur "
+                  "nach Rückfrage ersetzt und bleiben als Sicherung erhalten.",
+                  "Downloads the sample files listed in installer/sample_files.txt in the "
+                  "GitHub repository, to check the function right after the installation. "
+                  "The files are shown first; existing files are only replaced after asking "
+                  "and are kept as a backup.")))
             self.cb_amw = QtWidgets.QCheckBox(AMW_NAME)
             self.cb_amw.setChecked(cfg["amwave"])
             self.cb_amw.clicked.connect(self.on_amwave_clicked)
@@ -1871,8 +2211,11 @@ def run_gui(args, target, state, vs):
             else:
                 v["uptodate"] = None
             self.lb_version.setText(version_text(v))
-            self.bt_install.setText(T("Aktualisieren", "Update") if v["installed"]
-                                    else T("Installieren", "Install"))
+            if not self.grp_cohi.isChecked():
+                self.bt_install.setText(T("Ausführen", "Run"))
+            else:
+                self.bt_install.setText(T("Aktualisieren", "Update") if v["installed"]
+                                        else T("Installieren", "Install"))
             self.set_launch_buttons()
 
         def target_changed(self):
@@ -1932,7 +2275,8 @@ def run_gui(args, target, state, vs):
             for k, cb in self.cb.items():
                 cfg[k] = cb.isChecked()
             cfg["amwave"] = self.cb_amw.isChecked()
-            if not (cfg["cohi"] or cfg["amwave"]):
+            cfg["samples"] = self.cb_samples.isChecked()
+            if not (cfg["cohi"] or cfg["amwave"] or cfg["samples"]):
                 QtWidgets.QMessageBox.information(self, "COHI-Player Setup",
                                                   T("Es ist nichts ausgewählt.",
                                                     "Nothing is selected."))
@@ -1955,6 +2299,14 @@ def run_gui(args, target, state, vs):
                     return
                 if r == QtWidgets.QMessageBox.Ignore:
                     break
+            if cfg["samples"]:
+                plan = self.confirm_samples(cfg)
+                if plan is None:                       # Abbrechen
+                    return
+                cfg["sample_plan"], cfg["samples_overwrite"] = plan
+                cfg["samples"] = bool(plan[0])
+                if not (cfg["cohi"] or cfg["amwave"] or cfg["samples"]):
+                    return
             self.ran_cohi = cfg["cohi"]
             for w in (self.grp_cohi, self.grp_ext, self.bt_install, self.bt_close):
                 w.setEnabled(False)
@@ -1962,6 +2314,57 @@ def run_gui(args, target, state, vs):
             self.set_launch_buttons()
             self.worker.sig_done.connect(self.finished)
             self.worker.start()
+
+        def confirm_samples(self, cfg):
+            """Liste laden und anzeigen, nach dem Überschreiben fragen.
+            Ergebnis: None = Abbrechen, ([], False) = ohne Beispieldateien weiter,
+            sonst (Einträge, überschreiben)"""
+            QtWidgets.QApplication.setOverrideCursor(Qt.WaitCursor)
+            try:
+                entries, notes = plan_samples(cfg)
+            except Exception as exc:
+                QtWidgets.QApplication.restoreOverrideCursor()
+                QtWidgets.QMessageBox.critical(
+                    self, "COHI-Player Setup",
+                    T("Die Liste der Beispieldateien kann nicht geladen werden:\n\n",
+                      "The list of sample files cannot be loaded:\n\n")
+                    + f"{SAMPLES_RAW_URL}\n{getattr(exc, 'reason', exc)}")
+                return ([], False)
+            QtWidgets.QApplication.restoreOverrideCursor()
+            text, detail = samples_overview(entries, notes)
+            if not any(not e["error"] for e in entries):
+                QtWidgets.QMessageBox.warning(self, "COHI-Player Setup", text)
+                return ([], False)
+            Box = QtWidgets.QMessageBox
+            width = min(680, int(QtWidgets.QApplication.primaryScreen()
+                                 .availableGeometry().width() * 0.8))
+            wide = f"QLabel#qt_msgbox_label {{ min-width: {width}px; }}"
+            mb = Box(Box.Question, "COHI-Player Setup", text, Box.Yes | Box.No | Box.Cancel, self)
+            mb.setStyleSheet(wide)
+            mb.button(Box.Yes).setText(T("Herunterladen", "Download"))
+            mb.button(Box.No).setText(T("Ohne Beispieldateien", "Without sample files"))
+            mb.setDefaultButton(Box.Yes)
+            if detail:
+                mb.setDetailedText(detail)
+            r = mb.exec_()
+            if r == Box.Cancel:
+                return None
+            if r == Box.No:
+                return ([], False)
+            overwrite = False
+            existing = existing_samples(entries)
+            if existing:
+                mb = Box(Box.Question, "COHI-Player Setup", existing_overview(existing),
+                         Box.Yes | Box.No | Box.Cancel, self)
+                mb.setStyleSheet(wide)
+                mb.button(Box.Yes).setText(T("Überschreiben", "Overwrite"))
+                mb.button(Box.No).setText(T("Nur fehlende laden", "Only missing ones"))
+                mb.setDefaultButton(Box.No)
+                r = mb.exec_()
+                if r == Box.Cancel:
+                    return None
+                overwrite = r == Box.Yes
+            return (entries, overwrite)
 
         def finished(self, ok, err):
             self.worker = None
@@ -2081,6 +2484,11 @@ def build_parser():
     ap.add_argument("--amwave", action=argparse.BooleanOptionalAction, default=None,
                     help=T(f"{AMW_NAME} nach ~/{AMW_NAME} installieren (Vorgabe: nein)",
                            f"install {AMW_NAME} to ~/{AMW_NAME} (default: no)"))
+    ap.add_argument("--samples", action=argparse.BooleanOptionalAction, default=None,
+                    help=T("Beispieldateien aus installer/sample_files.txt herunterladen "
+                           "(Vorgabe: nein)",
+                           "download the sample files listed in installer/sample_files.txt "
+                           "(default: no)"))
     ap.add_argument("--icons", action=argparse.BooleanOptionalAction, default=None,
                     help=T("Desktop-Icons anlegen", "create desktop icons"))
     ap.add_argument("--make", action=argparse.BooleanOptionalAction, default=None,
