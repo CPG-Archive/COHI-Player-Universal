@@ -1,7 +1,7 @@
 # COHI-Player-Universal
 
 
-**Version 1.2.4** · License: [GPL-3.0](LICENSE)
+**Version 1.2.5** · License: [GPL-3.0](LICENSE)
 
 Original author: Claus Peter Gallenmiller (v1.0.0, [CPG-Archive/COHI-Player-Universal](https://github.com/CPG-Archive/COHI-Player-Universal)).
 Extensions by radiolab81:
@@ -13,6 +13,7 @@ Extensions by radiolab81:
 - **v1.2.2** (20.11.2026, CPG): installer for Linux platform and sample files in m3u format added
 - **v1.2.3** (22.11.2026, RL81): basic support for I/Q baseband streaming with in-band signaling for smiSDR (gateware: FPGA DUC) added 
 - **v1.2.4** (23.11.2026, RL81): real-time pacing also in the pure COHI-Player mode (WAV only, no live channels) of `cohi_native_upconverter`; pacing lead raised to 100 ms and reset threshold to 250 ms in all modes (also `smisdr_iq`) for smoother playback with smiSDR / parlioSDR
+- **v1.2.5** (26.11.2026, CPG): installer: optional download of sample files (list in `installer/sample_files.txt`) to check the function right after the installation, optional installation of the AMWaveSynthPropagationSimulator, update check and self-update, German/English user interface (`--lang`)
 
   
 COHI-Player turns a Raspberry Pi or PC into a small "broadcast station" for vintage radios. It replays recordings of complete AM broadcast bands and/or current internet radio streams on several freely selectable carrier frequencies at the same time, so that an old receiver can be tuned across the dial just like in its day. 
@@ -65,8 +66,6 @@ Plays a list of internet radio stations simultaneously, each on its own carrier 
 The stations can be maintained either in a CSV list (one stream address per station) or – new in 1.2 – in **one extended M3U file** that contains the stations *and* their playlists of local files or web addresses (see 5.4).
 
 ![COHI-Stream](www/cohi_stream.png)
-
-The stations can be maintained either in a CSV list (one stream address per station) or – new in 1.2 – in **one extended M3U file** that contains the stations *and* their playlists of local files or web addresses (see 5.4).
 
 ![COHI-Stream – station editor](www/cohi_stream_station_editor.png)
 
@@ -130,7 +129,7 @@ What you get:
 - **Raspberry Pi 4** (recommended for COHI-Player) or **Raspberry Pi 5** (recommended for COHI-Player+Stream; it also runs on a Pi 4)
 - Display: 3.5" touch display with 480×320 pixels (`display_variant: 1`) or 7" and larger (`display_variant: 2`)
 - RF output, one of:
-  - **STEMlab 125-14 / Red Pitaya** with the COHI STEMlab firmware image (see 4.4), connected via Ethernet
+  - **STEMlab 125-14 / Red Pitaya** with the COHI STEMlab firmware image (see 4.5), connected via Ethernet
   - **FL2K USB-to-VGA dongle** (chip FL2000), used with osmo-fl2k
   - **smiSDR / parlioSDR** ([smisdr](https://github.com/radiolab81/smisdr) / [parliosdr](https://github.com/radiolab81/parliosdr)), connected via Ethernet (see 5.5); with the FPGA DUC gateware in the I/Q baseband mode (`smisdr_iq`, see 5.5.1) for all three program variants
 - Internet connection (only for COHI-Stream / COHI-Player+Stream). It is stronly recommended to use a wired LAN connection to avoid dropouts in the sound signal.
@@ -166,7 +165,7 @@ The number of possible carriers in the above table are only estimations, the rea
 
 ## 4. Installation
 
-There are preconfigured plug&play-ready images availble for Raspberry Pi 4 and Raspberry Pi 5 at the [COHIRADIA webpage]([https://www.cohiradia.org/](https://www.cohiradia.org/de/docs/getting_started/installation/)). These images can be simply copied to a SD card to get a fully working COHIRADIA system.
+There are preconfigured plug&play-ready images available for Raspberry Pi 4 and Raspberry Pi 5 at the [COHIRADIA webpage](https://www.cohiradia.org/de/docs/getting_started/installation/). These images can be simply copied to a SD card to get a fully working COHIRADIA system.
 
 ### Installation with the installer (recommended)
 
@@ -204,11 +203,34 @@ The installer speaks German if the system language is German, otherwise English.
 
 | Option | Default | Description |
 |--------|---------|-------------|
+| Download sample files | off | downloads the sample files listed in `installer/sample_files.txt` (see below), to check the function right after the installation |
 | AMWaveSynthPropagationSimulator | off | the independent add-on [AMWaveSynthPropagationSimulator](https://github.com/radiolab81/AMWaveSynthPropagationSimulator) (see below) |
 
 Both programs are independent of each other and may also be installed on two different computers.
 
 At the end the installer offers to start **Config COHI** for the basic settings (see 5.1).
+
+**Sample files** (optional extension, not selected by default): after clicking *Install* / *Update* the installer loads the list `installer/sample_files.txt` from GitHub, checks every file on the server and shows the files with their sizes, together with a note that large files may take a long time. Files that are not available on the server are reported as errors. If files already exist, it asks whether to overwrite them; the old files are kept as backup `<name>.bak-<date-time>`. An existing file is only replaced after the new one has been downloaded completely. The downloads run last, after the installation of the programs.
+
+Syntax of `installer/sample_files.txt`:
+
+```
+# comment
+COHIRADIA: /WAV
+https://cohiradia.radiomuseum.org/download/data/samples/AM1_Sample_0.wav
+https://cohiradia.radiomuseum.org/download/data/samples/AM1_livestreams.m3u
+
+COHIRADIA: /WAV/MW/1960
+https://.../another_file.wav
+
+AMWaveSynthPropagationSimulator: /tx_sites/Example
+https://.../scenario.csv
+```
+
+- `COHIRADIA: <directory>` – target directory relative to the COHI-Player installation directory (`~/COHIRADIA`); the files listed below it are downloaded there
+- `AMWaveSynthPropagationSimulator: <directory>` – target directory relative to `~/AMWaveSynthPropagationSimulator`
+- a target applies until the next one; there may be any number of targets, also several for the same program, and subdirectories over several levels, which are created automatically (`..` is not allowed)
+- files for a program that is neither installed nor being installed are skipped (with a note)
 
 **AMWaveSynthPropagationSimulator** (optional extension, not selected by default) is installed as described in its own README:
 
@@ -254,6 +276,7 @@ Without a desktop (e.g. via SSH) stage 2 runs in the terminal. Useful command li
 | `--update` | update the existing installation (no questions about directory and Python variant) |
 | `--lang auto` / `de` / `en` | language of the installer: `auto` (default) = German if the system language is German, otherwise English |
 | `--cohi` / `--no-cohi` | install/update COHI-Player (default: yes, unless already up to date) |
+| `--samples` / `--no-samples` | download the sample files (default: no) |
 | `--amwave` / `--no-amwave` | install AMWaveSynthPropagationSimulator (default: no) |
 | `--target DIR` | installation directory instead of `~/COHIRADIA` |
 | `--python-env system` / `venv` | Python packages system-wide or in a virtual environment |
@@ -718,8 +741,6 @@ The sample rate of the recording must be supported by the output hardware; for S
 | A playlist in the M3U list stops after the first title or restarts | Make sure the station has at least two entries; for local playlists with web addresses the connection must stay available. Check the log file for the line “recognized as playlist” |
 | Standard buttons (Yes/No) remain English with `language: de` | Install `qttranslations5-l10n`. |
 | High CPU load with FL2K | Use `fl2k_upconverter: cpp`. |
-| Live stations (COHI-Stream) are distorted or sound as if intermodulating, or are too quiet with FL2K / smiSDR | Adjust `fl2k_live_gain_shift` (higher = quieter, see 5.2); fractions such as `1.25` or `1.5` allow fine steps |
-| A playlist in the M3U list stops after the first title or restarts | Make sure the station has at least two entries; for local playlists with web addresses the connection must stay available. Check the log file for the line “recognized as playlist” |
 
 For any problem, the log file `system_log.log` in the program directory is the first place to look (with `log_mode: append` it covers several program runs).
 
